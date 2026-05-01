@@ -2,8 +2,8 @@ export const config = {
   llm: {
     provider: process.env.LLM_PROVIDER ?? 'openai',
     apiKey: process.env.LLM_API_KEY ?? '',
-    baseUrl: process.env.LLM_BASE_URL ?? 'https://api.ppio.com/openai',
-    model: process.env.LLM_MODEL ?? 'pa/gpt-5.4',
+    baseUrl: process.env.LLM_BASE_URL ?? 'https://api.openai.com/v1',
+    model: process.env.LLM_MODEL ?? 'gpt-5.4',
     maxRetries: 5,
     retryBaseDelayMs: 2000,
     requestTimeoutMs: Number(process.env.LLM_TIMEOUT_MS ?? 600_000),
@@ -22,5 +22,9 @@ export const config = {
   },
   persistence: {
     checkpointDir: process.env.CHECKPOINT_DIR ?? './.checkpoints',
+  },
+  meta: {
+    github: 'https://github.com/homearchbishop/kougi-forge',
+    license: 'MIT',
   },
 } as const

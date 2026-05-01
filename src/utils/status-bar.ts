@@ -73,9 +73,12 @@ function draw (): void {
   const sepFill = Math.max(0, w - brandRaw.length - 2)
   const sep = `${c.dim} ${c.reset}${brand}${c.dim}  ${'─'.repeat(sepFill)}${c.reset}`
 
+  const meta = `${c.dim} ${config.meta.license} · ${config.meta.github}${c.reset}`
+
   process.stdout.write('\x1b7')
-  process.stdout.write(`\x1b[${r - 1};1H\x1b[2K${sep}`)
-  process.stdout.write(`\x1b[${r};1H\x1b[2K  ${phases}    ${stats}`)
+  process.stdout.write(`\x1b[${r - 2};1H\x1b[2K${sep}`)
+  process.stdout.write(`\x1b[${r - 1};1H\x1b[2K ${phases}    ${stats}`)
+  process.stdout.write(`\x1b[${r};1H\x1b[2K${meta}`)
   process.stdout.write('\x1b8')
 }
 
@@ -87,7 +90,7 @@ export function initStatusBar (): void {
   startTime = Date.now()
   const r = rows()
   // DECSTBM resets cursor to (1,1); immediately move to bottom of scroll region
-  process.stdout.write(`\x1b[1;${r - 2}r\x1b[${r - 2};1H`)
+  process.stdout.write(`\x1b[1;${r - 3}r\x1b[${r - 3};1H`)
   draw()
   timer = setInterval(draw, 1000)
   process.on('SIGWINCH', onResize)
@@ -100,9 +103,10 @@ export function destroyStatusBar (): void {
   process.off('SIGWINCH', onResize)
   const r = rows()
   process.stdout.write('\x1b[r')
+  process.stdout.write(`\x1b[${r - 2};1H\x1b[2K`)
   process.stdout.write(`\x1b[${r - 1};1H\x1b[2K`)
   process.stdout.write(`\x1b[${r};1H\x1b[2K`)
-  process.stdout.write(`\x1b[${r - 1};1H`)
+  process.stdout.write(`\x1b[${r - 2};1H`)
 }
 
 export function updateStageFromNode (nodeName: string): void {
@@ -138,6 +142,6 @@ export function refreshStatusBar (): void {
 function onResize (): void {
   if (!active) return
   const r = rows()
-  process.stdout.write(`\x1b[1;${r - 2}r\x1b[${r - 2};1H`)
+  process.stdout.write(`\x1b[1;${r - 3}r\x1b[${r - 3};1H`)
   draw()
 }

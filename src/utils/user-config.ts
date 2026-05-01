@@ -27,6 +27,14 @@ export interface KeyMeta {
   defaultValue?: string
 }
 
+export function getDefaultCheckpointDir (): string {
+  if (process.platform === 'win32') {
+    const localAppData = process.env['LOCALAPPDATA'] ?? join(homedir(), 'AppData', 'Local')
+    return join(localAppData, 'kougi-forge', 'checkpoints')
+  }
+  return join(homedir(), '.cache', 'kougi-forge', 'checkpoints')
+}
+
 export const KNOWN_KEYS: Record<string, KeyMeta> = {
   'llm.provider': { description: 'LLM provider (openai / anthropic / ...)', defaultValue: 'openai' },
   'llm.apiKey': { description: 'API key', required: true, secret: true },
@@ -35,7 +43,7 @@ export const KNOWN_KEYS: Record<string, KeyMeta> = {
   'llm.maxRetries': { description: 'Max retry attempts', defaultValue: '5' },
   'llm.requestTimeoutMs': { description: 'Request timeout (ms)', defaultValue: '600000' },
   'output.dir': { description: 'Output directory', defaultValue: './output' },
-  'persistence.checkpointDir': { description: 'Checkpoint directory', defaultValue: './.checkpoints' },
+  'persistence.checkpointDir': { description: 'Checkpoint directory', defaultValue: getDefaultCheckpointDir() },
 }
 
 export function getConfigPath (): string {

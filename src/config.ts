@@ -1,4 +1,4 @@
-import { loadUserConfig } from './utils/user-config.ts'
+import { getDefaultCheckpointDir, loadUserConfig } from './utils/user-config.ts'
 
 const user = loadUserConfig()
 
@@ -25,7 +25,7 @@ export const config = {
     format: 'markdown' as const,
   },
   persistence: {
-    checkpointDir: user.persistence?.checkpointDir ?? './.checkpoints',
+    checkpointDir: user.persistence?.checkpointDir ?? getDefaultCheckpointDir(),
   },
   meta: {
     github: 'https://github.com/homearchbishop/kougi-forge',

@@ -12,12 +12,142 @@ import type { UserInput } from './types/index.ts'
 import { listThreads, loadLatestWorkflowStage, loadSessionHistory } from './utils/checkpointer.ts'
 import { initTokenCounter, type InterruptPayload, logError, logInterrupt, logResume, logSaved, logSessionHistory, logStage, logTokenSummary, setTokensUpdatedCallback } from './utils/logger.ts'
 import { destroyStatusBar, initStatusBar, refreshStatusBar, setBookTitle, setChapterProgress, setStage, updateStageFromNode } from './utils/status-bar.ts'
+import { getConfigPath, getConfigValue, KNOWN_KEYS, loadUserConfig, rmConfigValue, saveUserConfig, setConfigValue, validateConfig } from './utils/user-config.ts'
 
 const dim = '\x1b[2m'
 const cyan = '\x1b[36m'
 const green = '\x1b[32m'
 const bold = '\x1b[1m'
+const red = '\x1b[31m'
 const reset = '\x1b[0m'
+
+// ─── config subcommand ────────────────────────────────────────────────────────
+
+function printConfigHelp (): void {
+  const keys = Object.entries(KNOWN_KEYS)
+  const keyWidth = Math.max(...keys.map(([k]) => k.length)) + 2
+  console.log(`
+${bold}kougi-forge config${reset}  manage configuration
+
+${bold}USAGE${reset}
+  kougi-forge config list
+  kougi-forge config get <key>
+  kougi-forge config set <key> <value>
+  kougi-forge config rm  <key>
+
+${bold}KEYS${reset}`)
+  for (const [key, meta] of keys) {
+    const req = meta.required ? ` ${red}required${reset}` : meta.defaultValue ? `${dim}  default: ${meta.defaultValue}${reset}` : ''
+    console.log(`  ${cyan}${key.padEnd(keyWidth)}${reset}${dim}${meta.description}${reset}${req}`)
+  }
+  console.log(`\n${dim}config file: ${getConfigPath()}${reset}`)
+}
+
+function maskSecret (value: string): string {
+  if (value.length <= 8) return '***'
+  return value.slice(0, 4) + '***' + value.slice(-4)
+}
+
+function handleConfigList (): void {
+  const cfg = loadUserConfig()
+  const keys = Object.entries(KNOWN_KEYS)
+  const keyWidth = Math.max(...keys.map(([k]) => k.length)) + 2
+  const valWidth = 32
+  console.log()
+  for (const [key, meta] of keys) {
+    const raw = getConfigValue(cfg, key)
+    let valStr: string
+    let suffix: string
+    if (raw === undefined || raw === null || raw === '') {
+      valStr = meta.required ? `${red}[not set]${reset}` : `${dim}[not set]${reset}`
+      suffix = meta.required ? `  ${red}REQUIRED${reset}` : meta.defaultValue ? `${dim}  default: ${meta.defaultValue}${reset}` : ''
+    } else {
+      const display = meta.secret ? maskSecret(String(raw)) : String(raw)
+      valStr = display
+      suffix = meta.defaultValue && String(raw) === meta.defaultValue ? `${dim}  (default)${reset}` : ''
+    }
+    console.log(`  ${cyan}${key.padEnd(keyWidth)}${reset}${valStr.padEnd(valWidth)}${suffix}`)
+  }
+  console.log(`\n${dim}config file: ${getConfigPath()}${reset}`)
+}
+
+function handleConfigGet (key: string): void {
+  if (!KNOWN_KEYS[key]) {
+    console.error(`${red}unknown key: ${key}${reset}`)
+    process.exit(1)
+  }
+  const cfg = loadUserConfig()
+  const value = getConfigValue(cfg, key)
+  if (value === undefined || value === null || value === '') {
+    console.log(`${dim}[not set]${reset}`)
+  } else {
+    console.log(String(value))
+  }
+}
+
+function handleConfigSet (key: string, value: string): void {
+  if (!KNOWN_KEYS[key]) {
+    console.error(`${red}unknown key: ${key}  (run: kougi-forge config list)${reset}`)
+    process.exit(1)
+  }
+  const cfg = setConfigValue(loadUserConfig(), key, value)
+  saveUserConfig(cfg)
+  console.log(`${green}✓${reset} set ${cyan}${key}${reset}`)
+}
+
+function handleConfigRm (key: string): void {
+  if (!KNOWN_KEYS[key]) {
+    console.error(`${red}unknown key: ${key}  (run: kougi-forge config list)${reset}`)
+    process.exit(1)
+  }
+  const cfg = rmConfigValue(loadUserConfig(), key)
+  saveUserConfig(cfg)
+  const meta = KNOWN_KEYS[key]!
+  const hint = meta.defaultValue ? `${dim}  (reset to default: ${meta.defaultValue})${reset}` : ''
+  console.log(`${green}✓${reset} removed ${cyan}${key}${reset}${hint}`)
+}
+
+function handleConfigCommand (args: string[]): void {
+  const sub = args[0]
+  if (!sub || sub === 'list') { handleConfigList(); return }
+  if (sub === 'get') {
+    if (!args[1]) { console.error(`${red}usage: kougi-forge config get <key>${reset}`); process.exit(1) }
+    handleConfigGet(args[1])
+    return
+  }
+  if (sub === 'set') {
+    if (!args[1] || args[2] === undefined) { console.error(`${red}usage: kougi-forge config set <key> <value>${reset}`); process.exit(1) }
+    handleConfigSet(args[1], args[2])
+    return
+  }
+  if (sub === 'rm') {
+    if (!args[1]) { console.error(`${red}usage: kougi-forge config rm <key>${reset}`); process.exit(1) }
+    handleConfigRm(args[1])
+    return
+  }
+  if (sub === '--help' || sub === '-h') { printConfigHelp(); return }
+  console.error(`${red}unknown config subcommand: ${sub}${reset}`)
+  printConfigHelp()
+  process.exit(1)
+}
+
+// ─── config completeness check ────────────────────────────────────────────────
+
+function assertConfigComplete (): void {
+  const issues = validateConfig(loadUserConfig())
+  if (issues.length === 0) return
+  console.error(`\n${red}✖ missing required configuration:${reset}`)
+  for (const issue of issues) {
+    console.error(`  ${cyan}${issue.key}${reset}  ${dim}${issue.description}${reset}`)
+    console.error(`  ${reset}${dim}run${reset}`)
+    console.error(`    ${cyan}kougi-forge config set ${issue.key} <value>${reset}`)
+    console.error(`  ${reset}${dim}to set ${issue.description}.${reset}`)
+    console.error('\n')
+  }
+  process.exit(1)
+}
+
+// ─── prompts ──────────────────────────────────────────────────────────────────
 
 async function promptUser (hint?: string): Promise<string> {
   const prompt = `\n${green} >${reset} ${hint ? `${dim}${hint}${reset} ` : ''}`
@@ -40,6 +170,7 @@ ${bold}kougi-forge${reset}  AI textbook generator
 
 ${bold}USAGE${reset}
   kougi-forge [topic]              start a new session (prompts if no topic given)
+  kougi-forge config <subcommand>  manage configuration
   kougi-forge --resume <id>        resume a session by id
   kougi-forge --list               list saved sessions
   kougi-forge --help               show this help
@@ -50,11 +181,15 @@ ${bold}OPTIONS${reset}
   -h, --help                       show help
 
 ${bold}EXAMPLES${reset}
+  kougi-forge config set llm.apiKey sk-...
+  kougi-forge config list
   kougi-forge "数据结构与算法"
   kougi-forge --list
   kougi-forge --resume session-1234567890
 `.trim())
 }
+
+// ─── sessions ─────────────────────────────────────────────────────────────────
 
 async function showSessions (): Promise<void> {
   const threads = await listThreads()
@@ -90,6 +225,8 @@ async function resolveSession (
   return { threadId, initialInput }
 }
 
+// ─── graph helpers ────────────────────────────────────────────────────────────
+
 function buildInitialInput (initialInput: string): object {
   return {
     userInput: {
@@ -122,10 +259,7 @@ async function promptInterrupt (payload: InterruptPayload): Promise<string> {
     const n = parseInt(raw, 10)
     if (n >= 1 && n <= payload.options.length) {
       const opt = payload.options[n - 1]!
-      if (opt.value === '') {
-        // free-text branch
-        return promptUser(opt.label)
-      }
+      if (opt.value === '') return promptUser(opt.label)
       return opt.value
     }
     console.log(`${'\x1b[2m'}  请输入 1 到 ${payload.options.length} 之间的数字${'\x1b[0m'}`)
@@ -159,9 +293,18 @@ async function processEvent (event: Record<string, unknown>): Promise<InterruptP
   return payload
 }
 
+// ─── main ─────────────────────────────────────────────────────────────────────
+
 async function main () {
+  const rawArgs = process.argv.slice(2)
+
+  if (rawArgs[0] === 'config') {
+    handleConfigCommand(rawArgs.slice(1))
+    return
+  }
+
   const { values, positionals } = parseArgs({
-    args: process.argv.slice(2),
+    args: rawArgs,
     options: {
       list: { type: 'boolean', short: 'l', default: false },
       resume: { type: 'string', short: 'r' },
@@ -170,15 +313,10 @@ async function main () {
     allowPositionals: true,
   })
 
-  if (values.help) {
-    printHelp()
-    return
-  }
+  if (values.help) { printHelp(); return }
+  if (values.list) { await showSessions(); return }
 
-  if (values.list) {
-    await showSessions()
-    return
-  }
+  assertConfigComplete()
 
   mkdirSync(config.persistence.checkpointDir, { recursive: true })
 
@@ -187,16 +325,13 @@ async function main () {
     positionals,
   )
 
-  if (initialInput) {
-    logStage(initialInput)
-  }
+  if (initialInput) logStage(initialInput)
 
   mkdirSync(`${config.persistence.checkpointDir}/${threadId}`, { recursive: true })
   await initTokenCounter(threadId)
   setTokensUpdatedCallback(refreshStatusBar)
   initStatusBar()
 
-  // On resume, infer current stage from checkpoint so status bar and log are correct immediately
   if (!initialInput) {
     const [rs, history] = await Promise.all([
       loadLatestWorkflowStage(threadId),
@@ -213,14 +348,11 @@ async function main () {
   const caffeinate = spawn('caffeinate', ['-i'], { stdio: 'ignore' })
 
   let currentInput: any = initialInput ? buildInitialInput(initialInput) : null
-
   let completed = false
   let shuttingDown = false
 
   process.on('SIGINT', () => {
-    if (shuttingDown) {
-      process.exit(1)
-    }
+    if (shuttingDown) process.exit(1)
     shuttingDown = true
     caffeinate.kill()
     destroyStatusBar()
@@ -241,10 +373,7 @@ async function main () {
         if (p) interruptPayload = p
       }
 
-      if (!interruptPayload) {
-        completed = true
-        break
-      }
+      if (!interruptPayload) { completed = true; break }
 
       logSaved(threadId)
       const userResponse = await promptInterrupt(interruptPayload)
@@ -261,9 +390,7 @@ async function main () {
   caffeinate.kill()
   destroyStatusBar()
   logTokenSummary()
-  if (completed) {
-    console.log(`\n${bold}done${reset}`)
-  }
+  if (completed) console.log(`\n${bold}done${reset}`)
 }
 
 main()

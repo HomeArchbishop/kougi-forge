@@ -1,12 +1,16 @@
+import { loadUserConfig } from './utils/user-config.ts'
+
+const user = loadUserConfig()
+
 export const config = {
   llm: {
-    provider: process.env.LLM_PROVIDER ?? 'openai',
-    apiKey: process.env.LLM_API_KEY ?? '',
-    baseUrl: process.env.LLM_BASE_URL ?? 'https://api.openai.com',
-    model: process.env.LLM_MODEL ?? 'gpt-5.4',
-    maxRetries: 5,
-    retryBaseDelayMs: 2000,
-    requestTimeoutMs: Number(process.env.LLM_TIMEOUT_MS ?? 600_000),
+    provider: user.llm?.provider ?? 'openai',
+    apiKey: user.llm?.apiKey ?? '',
+    baseUrl: user.llm?.baseUrl ?? 'https://api.openai.com/v1',
+    model: user.llm?.model ?? 'gpt-4o',
+    maxRetries: user.llm?.maxRetries ?? 5,
+    retryBaseDelayMs: user.llm?.retryBaseDelayMs ?? 2000,
+    requestTimeoutMs: user.llm?.requestTimeoutMs ?? 600_000,
   },
   quality: {
     blueprintPassScore: 8.5,
@@ -17,14 +21,14 @@ export const config = {
     maxClarificationRounds: 2,
   },
   output: {
-    dir: process.env.OUTPUT_DIR ?? './output',
+    dir: user.output?.dir ?? './output',
     format: 'markdown' as const,
   },
   persistence: {
-    checkpointDir: process.env.CHECKPOINT_DIR ?? './.checkpoints',
+    checkpointDir: user.persistence?.checkpointDir ?? './.checkpoints',
   },
   meta: {
     github: 'https://github.com/homearchbishop/kougi-forge',
     license: 'MIT',
   },
-} as const
+}

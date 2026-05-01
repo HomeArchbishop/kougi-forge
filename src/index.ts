@@ -1,3 +1,4 @@
+import { spawn } from 'node:child_process'
 import { mkdirSync } from 'node:fs'
 import { createInterface } from 'node:readline'
 
@@ -178,7 +179,7 @@ async function main () {
 
   const graph = compileMainGraph()
   const threadConfig = { configurable: { thread_id: threadId } }
-  const caffeinate = Bun.spawn(['caffeinate', '-i'], { stderr: 'ignore', stdout: 'ignore' })
+  const caffeinate = spawn('caffeinate', ['-i'], { stdio: 'ignore' })
 
   let currentInput: any = initialInput ? buildInitialInput(initialInput) : null
 

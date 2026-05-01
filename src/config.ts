@@ -2,7 +2,7 @@ export const config = {
   llm: {
     provider: process.env.LLM_PROVIDER ?? 'openai',
     apiKey: process.env.LLM_API_KEY ?? '',
-    baseUrl: process.env.LLM_BASE_URL ?? 'https://api.openai.com/v1',
+    baseUrl: process.env.LLM_BASE_URL ?? 'https://api.openai.com',
     model: process.env.LLM_MODEL ?? 'gpt-5.4',
     maxRetries: 5,
     retryBaseDelayMs: 2000,

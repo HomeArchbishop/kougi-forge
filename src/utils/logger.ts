@@ -1,3 +1,6 @@
+import { existsSync } from 'node:fs'
+import { readFile, writeFile } from 'node:fs/promises'
+
 import { config } from '../config.ts'
 import { NODE_META } from './stage-config.ts'
 
@@ -29,10 +32,9 @@ const tokenCounter: TokenFile = {
 
 export async function initTokenCounter (threadId: string): Promise<void> {
   tokenFilePath = `${config.persistence.checkpointDir}/${threadId}/tokens.json`
-  const file = Bun.file(tokenFilePath)
-  if (await file.exists()) {
+  if (existsSync(tokenFilePath)) {
     try {
-      const saved = await file.json() as TokenFile
+      const saved = JSON.parse(await readFile(tokenFilePath, 'utf8')) as TokenFile
       tokenCounter.inputTokens = saved.inputTokens ?? 0
       tokenCounter.outputTokens = saved.outputTokens ?? 0
       tokenCounter.calls = saved.calls ?? 0
@@ -51,7 +53,7 @@ export function trackTokens (input: number, output: number): void {
   tokenCounter.outputTokens += output
   tokenCounter.calls++
   if (tokenFilePath) {
-    Bun.write(tokenFilePath, JSON.stringify(tokenCounter)).catch(() => {})
+    writeFile(tokenFilePath, JSON.stringify(tokenCounter)).catch(() => {})
   }
   onTokensUpdated?.()
 }

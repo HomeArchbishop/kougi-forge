@@ -9,7 +9,6 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@types/bun": "latest",
     "eslint": "9",
     "eslint-plugin-simple-import-sort": "^13.0.0",
     "neostandard": "^0.13.0"

@@ -1,4 +1,6 @@
-import { readdirSync, unlinkSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, unlinkSync } from 'node:fs'
+import { readFile, writeFile } from 'node:fs/promises'
+import { dirname } from 'node:path'
 
 import type { RunnableConfig } from '@langchain/core/runnables'
 import type { BaseCheckpointSaver, Checkpoint, CheckpointListOptions, CheckpointMetadata, CheckpointPendingWrite, CheckpointTuple, PendingWrite, SerializerProtocol } from '@langchain/langgraph-checkpoint'
@@ -46,17 +48,17 @@ function getIndexPath (threadId: string): string {
 }
 
 async function readJson<T> (path: string): Promise<T | null> {
-  const file = Bun.file(path)
-  if (!(await file.exists())) return null
+  if (!existsSync(path)) return null
   try {
-    return await file.json() as T
+    return JSON.parse(await readFile(path, 'utf8')) as T
   } catch {
     return null
   }
 }
 
 async function writeJson (path: string, data: unknown): Promise<void> {
-  await Bun.write(path, JSON.stringify(data))
+  mkdirSync(dirname(path), { recursive: true })
+  await writeFile(path, JSON.stringify(data))
 }
 
 const jsonSerde: SerializerProtocol = {
@@ -198,8 +200,7 @@ export class FileCheckpointSaver implements BaseCheckpointSaver {
 
   async deleteThread (threadId: string): Promise<void> {
     const dir = getThreadDir(threadId)
-    const file = Bun.file(`${dir}/index.json`)
-    if (await file.exists()) {
+    if (existsSync(`${dir}/index.json`)) {
       const index = await readJson<ThreadIndex>(getIndexPath(threadId))
       if (index) {
         for (const id of index.checkpoints) {

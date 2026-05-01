@@ -4,12 +4,13 @@
   "module": "src/index.ts",
   "type": "module",
   "bin": {
-    "kougi-forge": "./dist/index.js"
+    "kougi-forge": "./dist/kougi-forge.js"
   },
   "scripts": {
     "start": "bun run src/index.ts",
     "dev": "bun --hot src/index.ts",
-    "build": "bun build src/index.ts --outfile dist/index.js --target node --sourcemap",
+    "build": "bun build src/index.ts --outfile dist/kougi-forge.js --target node",
+    "prepare": "git config core.hooksPath .githooks",
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit"
   },

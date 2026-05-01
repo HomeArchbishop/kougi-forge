@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>architecture.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="%E6%9E%B6%E6%9E%84%E6%96%87%E6%A1%A3">架构文档</h1>
+<h2 id="%E6%80%BB%E8%A7%88">总览</h2>
+<p>kougi-forge 是一个基于 LangGraph.js 的有状态多智能体系统。用户输入一个主题，系统通过五个阶段的流水线自动生成完整教材，在关键节点支持人工介入确认。</p>
+<p>整个流程是一个<strong>有向状态图</strong>，所有节点共享同一份全局状态（<code>TextbookState</code>），通过 <code>FileCheckpointSaver</code> 持久化到磁盘，支持随时中断和恢复。</p>
+<hr>
+<h2 id="%E6%95%B4%E4%BD%93%E6%B5%81%E7%A8%8B">整体流程</h2>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    START(["开始"]) --> p1_in
+
+    subgraph P1[" 阶段一：需求分析 "]
+        p1_in(["进入"]):::entry
+        p1_in --> parse_input[解析输入]
+        parse_input --> check_sufficiency[检查需求完整性]
+        check_sufficiency -->|不足| ask_clarification[追问用户]
+        ask_clarification --> check_sufficiency
+        check_sufficiency -->|充分 / 达到追问上限| fill_defaults[填充默认值]
+        fill_defaults --> generate_project_def[生成项目定义]
+        generate_project_def --> p1_out(["输出：TextbookProject"]):::exit
+    end
+
+    p1_out --> p2_in
+
+    subgraph P2[" 阶段二：蓝图规划 "]
+        p2_in(["进入"]):::entry
+        p2_in --> generate_blueprints[生成多方案蓝图]
+        generate_blueprints --> compare_and_merge[比较合并]
+        compare_and_merge --> critique_blueprint[评审蓝图]
+        critique_blueprint -->|质量不达标| revise_blueprint[修订蓝图]
+        revise_blueprint --> critique_blueprint
+        critique_blueprint -->|通过 / 达到修订上限| confirm_blueprint{"用户确认"}
+        confirm_blueprint -->|拒绝| revise_blueprint
+        confirm_blueprint -->|确认| p2_out(["输出：Blueprint"]):::exit
+    end
+
+    p2_out --> p3_in
+
+    subgraph P3[" 阶段三：样章生成 "]
+        p3_in(["进入"]):::entry
+        p3_in --> sample_plan_chapter[规划样章]
+        sample_plan_chapter --> sample_write_variants[并发撰写多版本]
+        sample_write_variants --> sample_synthesize[综合最优版本]
+        sample_synthesize --> confirm_sample{"用户确认风格"}
+        confirm_sample -->|调整意见| sample_write_variants
+        confirm_sample -->|确认| p3_out(["输出：样章 + 风格指南"]):::exit
+    end
+
+    p3_out --> p4_in
+
+    subgraph P4[" 阶段四：章节生产 ×N "]
+        p4_in(["进入"]):::entry
+        p4_in --> select_next_chapter[选择下一章]
+        select_next_chapter --> ch_plan_chapter[规划章节]
+        ch_plan_chapter -->|需要资料| ch_research[资料调研]
+        ch_plan_chapter -->|无需调研| ch_write_variants
+        ch_research --> ch_write_variants[并发撰写多版本]
+        ch_write_variants --> ch_synthesize[综合草稿]
+        ch_synthesize --> ch_review_all[多专家并行审校]
+        ch_review_all -->|质量不达标| ch_plan_and_rewrite[规划修订]
+        ch_plan_and_rewrite --> ch_review_all
+        ch_review_all -->|通过| ch_generate_exercises[生成练习题]
+        ch_generate_exercises --> ch_review_exercises[审查练习题]
+        ch_review_exercises --> ch_finalize[章节定稿]
+        ch_finalize -->|还有章节| select_next_chapter
+        ch_finalize -->|全部完成| p4_out(["输出：全部章节 + 术语表"]):::exit
+    end
+
+    p4_out --> p5_in
+
+    subgraph P5[" 阶段五：全书组装 "]
+        p5_in(["进入"]):::entry
+        p5_in --> assemble_book[组装全书]
+        assemble_book --> consistency_check[一致性检查]
+        consistency_check --> global_revision[全书修订]
+        global_revision --> format_output[输出文件]
+        format_output --> final_confirmation{"最终确认"}
+        final_confirmation --> p5_out(["输出：Markdown 教材"]):::exit
+    end
+
+    p5_out --> END(["结束"])
+
+    classDef entry fill:#d4edda,stroke:#28a745,color:#155724
+    classDef exit  fill:#cce5ff,stroke:#004085,color:#004085
+</div></code></pre>
+<hr>
+<h2 id="%E5%90%84%E9%98%B6%E6%AE%B5%E8%AF%B4%E6%98%8E">各阶段说明</h2>
+<h3 id="%E9%98%B6%E6%AE%B5%E4%B8%80%E9%9C%80%E6%B1%82%E5%88%86%E6%9E%90">阶段一：需求分析</h3>
+<table>
+<thead>
+<tr>
+<th>节点</th>
+<th>职责</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>parse_input</code></td>
+<td>从用户原始输入中提取主题、受众、深度、风格等结构化字段</td>
+</tr>
+<tr>
+<td><code>check_sufficiency</code></td>
+<td>判断需求是否充分，输出 <code>isSufficient</code> 标志</td>
+</tr>
+<tr>
+<td><code>ask_clarification</code></td>
+<td>向用户追问缺失信息（最多 <code>maxClarificationRounds</code> 轮）</td>
+</tr>
+<tr>
+<td><code>fill_defaults</code></td>
+<td>对仍为空的字段填入合理默认值</td>
+</tr>
+<tr>
+<td><code>generate_project_def</code></td>
+<td>综合所有需求，生成 <code>TextbookProject</code>（教材元数据和风格指南）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="%E9%98%B6%E6%AE%B5%E4%BA%8C%E8%93%9D%E5%9B%BE%E8%A7%84%E5%88%92">阶段二：蓝图规划</h3>
+<table>
+<thead>
+<tr>
+<th>节点</th>
+<th>职责</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>generate_blueprints</code></td>
+<td>并发生成多个章节目录方案（<code>BlueprintVariant[]</code>）</td>
+</tr>
+<tr>
+<td><code>compare_and_merge</code></td>
+<td>对比各方案优劣，融合成一份最优蓝图</td>
+</tr>
+<tr>
+<td><code>critique_blueprint</code></td>
+<td>对蓝图打分（满分 10 分），输出详细评审意见</td>
+</tr>
+<tr>
+<td><code>revise_blueprint</code></td>
+<td>按评审意见修订蓝图（最多 <code>blueprintMaxRounds</code> 轮）</td>
+</tr>
+<tr>
+<td><code>confirm_blueprint</code></td>
+<td><strong>人工确认节点</strong>（<code>interrupt</code>）：用户审阅并决定是否接受或要求修改</td>
+</tr>
+</tbody>
+</table>
+<p>质量门：<code>critique.score &gt;= blueprintPassScore</code>（默认 8.5）才能跳过修订直接进入确认。</p>
+<h3 id="%E9%98%B6%E6%AE%B5%E4%B8%89%E6%A0%B7%E7%AB%A0%E7%94%9F%E6%88%90">阶段三：样章生成</h3>
+<p>用第一章作为样章，让用户在全量生产前确认写作风格。</p>
+<table>
+<thead>
+<tr>
+<th>节点</th>
+<th>职责</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>sample_plan_chapter</code></td>
+<td>规划样章的小节结构、关键知识点、示例类型</td>
+</tr>
+<tr>
+<td><code>sample_write_variants</code></td>
+<td>并发生成三种风格变体（<code>popular</code> / <code>rigorous</code> / <code>case-based</code>）</td>
+</tr>
+<tr>
+<td><code>sample_synthesize</code></td>
+<td>综合三版本取长补短，生成最终草稿</td>
+</tr>
+<tr>
+<td><code>confirm_sample</code></td>
+<td><strong>人工确认节点</strong>：展示前 3000 字预览，用户可确认、提意见或要求重写</td>
+</tr>
+</tbody>
+</table>
+<p>若用户提出风格调整意见（非&quot;重写&quot;），意见追加到 <code>styleGuide</code>，后续所有章节写作都会受此约束。</p>
+<h3 id="%E9%98%B6%E6%AE%B5%E5%9B%9B%E7%AB%A0%E8%8A%82%E7%94%9F%E4%BA%A7">阶段四：章节生产</h3>
+<p>对蓝图中每一章循环执行，已完成的样章（第一章）跳过。</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    select_next_chapter --> ch_plan_chapter
+    ch_plan_chapter -->|含数据/法规/趋势等关键词| ch_research
+    ch_plan_chapter -->|无需调研| ch_write_variants
+    ch_research --> ch_write_variants
+    ch_write_variants --> ch_synthesize
+    ch_synthesize --> ch_review_all
+    ch_review_all -->|score < 8.5| ch_plan_and_rewrite
+    ch_plan_and_rewrite --> ch_review_all
+    ch_review_all -->|score >= 8.5| ch_generate_exercises
+    ch_generate_exercises --> ch_review_exercises
+    ch_review_exercises --> ch_finalize
+    ch_finalize -->|index < total| select_next_chapter
+    ch_finalize -->|index >= total| assemble_book
+</div></code></pre>
+<table>
+<thead>
+<tr>
+<th>节点</th>
+<th>职责</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ch_plan_chapter</code></td>
+<td>将章节规划细化为小节、知识点、示例、图表建议</td>
+</tr>
+<tr>
+<td><code>ch_research</code></td>
+<td>对含&quot;数据/法规/趋势/文献&quot;等关键词的章节调研背景资料</td>
+</tr>
+<tr>
+<td><code>ch_write_variants</code></td>
+<td>并发生成 popular / rigorous / case-based 三个版本</td>
+</tr>
+<tr>
+<td><code>ch_synthesize</code></td>
+<td>综合三版本（或在样章阶段直接返回单版本）</td>
+</tr>
+<tr>
+<td><code>ch_review_all</code></td>
+<td>多专家角色（学科专家、教学设计师、语言编辑）并行审校，汇总评分</td>
+</tr>
+<tr>
+<td><code>ch_plan_and_rewrite</code></td>
+<td>根据审校意见制定修订计划并重写（最多 <code>chapterMaxRevisionRounds</code> 轮）</td>
+</tr>
+<tr>
+<td><code>ch_generate_exercises</code></td>
+<td>生成各类型练习题（选择、填空、编程、思考题）</td>
+</tr>
+<tr>
+<td><code>ch_review_exercises</code></td>
+<td>审查练习题质量（难度分布、答案准确性）</td>
+</tr>
+<tr>
+<td><code>ch_finalize</code></td>
+<td>章节定稿，提取术语入 <code>glossary</code>，生成章节摘要供后续章节上下文引用</td>
+</tr>
+</tbody>
+</table>
+<h3 id="%E9%98%B6%E6%AE%B5%E4%BA%94%E5%85%A8%E4%B9%A6%E7%BB%84%E8%A3%85">阶段五：全书组装</h3>
+<table>
+<thead>
+<tr>
+<th>节点</th>
+<th>职责</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>assemble_book</code></td>
+<td>将所有章节、练习题、术语表拼装为完整书稿</td>
+</tr>
+<tr>
+<td><code>consistency_check</code></td>
+<td>检查术语一致性、难度曲线、风格统一性，输出问题清单</td>
+</tr>
+<tr>
+<td><code>global_revision</code></td>
+<td>按问题清单对全书做统一修订</td>
+</tr>
+<tr>
+<td><code>format_output</code></td>
+<td>生成 Markdown 文件，写入 <code>OUTPUT_DIR</code></td>
+</tr>
+<tr>
+<td><code>final_confirmation</code></td>
+<td><strong>人工确认节点</strong>：展示最终产物摘要，用户确认后流程结束</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="%E7%8A%B6%E6%80%81%E7%BB%93%E6%9E%84">状态结构</h2>
+<p>所有节点读写同一份 <code>TextbookState</code>，关键字段如下：</p>
+<pre class="hljs"><code><div>TextbookState
+├── userInput          原始用户输入
+├── clarification      需求澄清状态（轮次、是否充分）
+├── textbookProject    教材元数据（标题、受众、风格指南等）
+├── blueprintVariants  多方案蓝图列表
+├── blueprint          最终确认的蓝图（含章节目录）
+├── chapterPlans       各章节规划 { chapterId → ChapterPlan }
+├── research           各章节调研资料 { chapterId → ResearchNotes }
+├── draftVariants      各章节多版本草稿 { chapterId → DraftVariant[] }
+├── drafts             各章节综合草稿 { chapterId → ChapterDraft }
+├── reviews            各章节审校结果 { chapterId → ChapterReviews }
+├── exercises          各章节练习题 { chapterId → ChapterExercises }
+├── chapterSummaries   各章节摘要（用于后续章节的上下文）
+├── glossary           全书术语表（各章节累加）
+├── recurringIssues    审校中反复出现的问题（跨章节传递）
+├── finalBook          最终书稿
+└── workflow           流程控制状态（当前阶段、当前章节、修订轮次）
+</div></code></pre>
+<p>Record 类型字段使用合并 reducer（<code>{ ...prev, ...update }</code>），支持并发写入不同 key。</p>
+<hr>
+<h2 id="%E6%8C%81%E4%B9%85%E5%8C%96%E4%B8%8E%E6%96%AD%E7%82%B9%E7%BB%AD%E5%86%99">持久化与断点续写</h2>
+<p><code>FileCheckpointSaver</code> 将每个 LangGraph checkpoint 以 JSON 文件形式保存在 <code>.checkpoints/&lt;threadId&gt;/</code> 目录下：</p>
+<pre class="hljs"><code><div>.checkpoints/
+└── session-1234567890/
+    ├── index.json          checkpoint ID 列表
+    ├── &lt;checkpoint-id&gt;.json
+    └── tokens.json         本次会话累计 token 用量
+</div></code></pre>
+<p>任意时刻 <code>Ctrl+C</code> 中断后，使用 <code>--resume &lt;threadId&gt;</code> 从最近的 checkpoint 继续，不会重复执行已完成的节点。</p>
+<hr>
+<h2 id="%E4%BA%BA%E5%B7%A5%E7%A1%AE%E8%AE%A4%E8%8A%82%E7%82%B9">人工确认节点</h2>
+<p>流程中共有三处 <code>interrupt</code>（LangGraph 的人工介入机制）：</p>
+<table>
+<thead>
+<tr>
+<th>节点</th>
+<th>时机</th>
+<th>用户可操作</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>confirm_blueprint</code></td>
+<td>蓝图规划完成后</td>
+<td>确认 / 提出修改意见</td>
+</tr>
+<tr>
+<td><code>confirm_sample</code></td>
+<td>样章生成后</td>
+<td>确认风格 / 提出调整 / 要求重写</td>
+</tr>
+<tr>
+<td><code>final_confirmation</code></td>
+<td>全书输出后</td>
+<td>确认完成</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="%E8%B4%A8%E9%87%8F%E6%8E%A7%E5%88%B6%E5%8F%82%E6%95%B0">质量控制参数</h2>
+<p>所有阈值集中在 <code>src/config.ts</code> 的 <code>quality</code> 字段，可通过环境变量调整：</p>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>默认值</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>blueprintPassScore</code></td>
+<td>8.5</td>
+<td>蓝图评审通过分数线</td>
+</tr>
+<tr>
+<td><code>blueprintMaxRounds</code></td>
+<td>3</td>
+<td>蓝图最大修订轮次</td>
+</tr>
+<tr>
+<td><code>chapterPassScore</code></td>
+<td>8.5</td>
+<td>章节审校通过分数线</td>
+</tr>
+<tr>
+<td><code>chapterMaxRevisionRounds</code></td>
+<td>3</td>
+<td>章节最大修订轮次</td>
+</tr>
+<tr>
+<td><code>maxClarificationRounds</code></td>
+<td>2</td>
+<td>需求追问最大轮次</td>
+</tr>
+</tbody>
+</table>
+
+</body>
+</html>

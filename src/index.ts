@@ -1,6 +1,8 @@
+#!/usr/bin/env node
 import { spawn } from 'node:child_process'
 import { mkdirSync } from 'node:fs'
 import { createInterface } from 'node:readline'
+import { parseArgs } from 'node:util'
 
 import { Command } from '@langchain/langgraph'
 
@@ -29,7 +31,29 @@ async function promptUser (hint?: string): Promise<string> {
 }
 
 function printResumeHint (threadId: string): void {
-  console.log(`\n${dim}resume: bun run start --resume ${threadId}${reset}`)
+  console.log(`\n${dim}resume: kougi-forge --resume ${threadId}${reset}`)
+}
+
+function printHelp (): void {
+  console.log(`
+${bold}kougi-forge${reset}  AI textbook generator
+
+${bold}USAGE${reset}
+  kougi-forge [topic]              start a new session (prompts if no topic given)
+  kougi-forge --resume <id>        resume a session by id
+  kougi-forge --list               list saved sessions
+  kougi-forge --help               show this help
+
+${bold}OPTIONS${reset}
+  -r, --resume <session-id>        resume a session
+  -l, --list                       list all sessions
+  -h, --help                       show help
+
+${bold}EXAMPLES${reset}
+  kougi-forge "数据结构与算法"
+  kougi-forge --list
+  kougi-forge --resume session-1234567890
+`.trim())
 }
 
 async function showSessions (): Promise<void> {
@@ -46,32 +70,23 @@ async function showSessions (): Promise<void> {
   }
 }
 
-async function resolveSession (args: string[]): Promise<{ threadId: string; initialInput: string | null }> {
-  const resumeIdx = args.indexOf('--resume')
-  if (resumeIdx !== -1) {
-    let threadId = args[resumeIdx + 1] ?? ''
-    if (!threadId) {
-      const threads = await listThreads()
-      if (threads.length === 0) {
-        logError('no sessions to resume · use --list to check')
-        process.exit(1)
-      }
-      threadId = threads[0]!.threadId
-    }
+async function resolveSession (
+  opts: { resume: boolean; sessionId?: string },
+  positionals: string[],
+): Promise<{ threadId: string; initialInput: string | null }> {
+  if (opts.resume) {
+    const threadId = opts.sessionId!
     logResume(threadId)
     return { threadId, initialInput: null }
   }
 
   const threadId = `session-${Date.now()}`
-  const nonFlagArgs = args.filter(a => !a.startsWith('--'))
-  if (nonFlagArgs.length > 0) {
-    return { threadId, initialInput: nonFlagArgs.join(' ') }
+  if (positionals.length > 0) {
+    return { threadId, initialInput: positionals.join(' ') }
   }
 
   const initialInput = await promptUser('输入教材主题和要求')
-  if (!initialInput) {
-    process.exit(0)
-  }
+  if (!initialInput) process.exit(0)
   return { threadId, initialInput }
 }
 
@@ -145,16 +160,32 @@ async function processEvent (event: Record<string, unknown>): Promise<InterruptP
 }
 
 async function main () {
-  const args = process.argv.slice(2)
+  const { values, positionals } = parseArgs({
+    args: process.argv.slice(2),
+    options: {
+      list: { type: 'boolean', short: 'l', default: false },
+      resume: { type: 'string', short: 'r' },
+      help: { type: 'boolean', short: 'h', default: false },
+    },
+    allowPositionals: true,
+  })
 
-  if (args.includes('--list')) {
+  if (values.help) {
+    printHelp()
+    return
+  }
+
+  if (values.list) {
     await showSessions()
     return
   }
 
   mkdirSync(config.persistence.checkpointDir, { recursive: true })
 
-  const { threadId, initialInput } = await resolveSession(args)
+  const { threadId, initialInput } = await resolveSession(
+    { resume: !!values.resume, sessionId: values.resume },
+    positionals,
+  )
 
   if (initialInput) {
     logStage(initialInput)

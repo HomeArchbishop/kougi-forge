@@ -66329,7 +66329,10 @@ function initStatusBar() {
   active = true;
   startTime = Date.now();
   const r = rows();
-  process.stdout.write(`\x1B[1;${r - 3}r\x1B[${r - 3};1H`);
+  process.stdout.write(`
+
+
+\x1B[1;${r - 3}r\x1B[${r - 3};1H`);
   draw();
   timer = setInterval(draw, 1000);
   process.on("SIGWINCH", onResize);
@@ -66386,12 +66389,17 @@ function onResize() {
 // src/utils/structured-output.ts
 var dim = "\x1B[2m";
 var reset = "\x1B[0m";
+var spinnerManager = {
+  queue: []
+};
 function startSpinner(label) {
   const frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
   let i = 0;
   let outTokens = 0;
   let currentPreview = "";
   const startTime2 = Date.now();
+  const id = crypto.randomUUID();
+  spinnerManager.queue.unshift(id);
   if (!process.stdout.isTTY) {
     return {
       stop: (durationMs, usage) => {
@@ -66403,25 +66411,42 @@ function startSpinner(label) {
       update: () => {}
     };
   }
+  let isFirstPrint = true;
+  const isCurrentFirstLine = spinnerManager.queue.length === 1;
   const timer2 = setInterval(() => {
     const sec = ((Date.now() - startTime2) / 1000).toFixed(1);
     const tokenStr = outTokens > 0 ? ` out:${outTokens}` : " 请求中";
     const previewStr = currentPreview ? `  "${currentPreview}"` : "";
     const line = `   ⎿  ${frames[i++ % frames.length]} ${sec}s${tokenStr}${previewStr}`;
+    const deltaY = spinnerManager.queue.findIndex((x) => x === id);
+    if (!isFirstPrint) {
+      process.stdout.moveCursor(0, -deltaY);
+    } else {
+      if (!isCurrentFirstLine) {
+        process.stdout.write(`
+`);
+      }
+      isFirstPrint = false;
+    }
     process.stdout.cursorTo(0);
     process.stdout.clearLine(1);
     process.stdout.write(line);
+    process.stdout.moveCursor(0, deltaY);
   }, 100);
   return {
     stop: (durationMs, usage) => {
       clearInterval(timer2);
+      const deltaY = spinnerManager.queue.length - 1;
+      process.stdout.moveCursor(0, -deltaY);
       process.stdout.cursorTo(0);
       process.stdout.clearLine(1);
       const sec = (durationMs / 1000).toFixed(1);
       const tokens = usage ? ` · ${usage.input_tokens ?? 0} in · ${usage.output_tokens ?? 0} out` : "";
       process.stdout.write(`${dim}   ⎿  ✓ ${label}  ${sec}s${tokens}${reset}
 `);
+      process.stdout.moveCursor(0, deltaY);
       refreshStatusBar();
+      spinnerManager.queue.splice(spinnerManager.queue.findIndex((x) => x === id), 1);
     },
     update: (_inputTokens, outputTokens, preview) => {
       outTokens = outputTokens;
@@ -68218,7 +68243,8 @@ function buildMainGraph() {
     revise_blueprint: n4.revise_blueprint
   }).addEdge(n4.select_sample_chapter, n4.sample_plan_chapter).addEdge(n4.sample_plan_chapter, n4.sample_write_variants).addEdge(n4.sample_write_variants, n4.sample_synthesize).addEdge(n4.sample_synthesize, n4.confirm_sample).addConditionalEdges(n4.confirm_sample, sampleConfirmRouter, {
     select_next_chapter: n4.select_next_chapter,
-    sample_write_variants: n4.sample_write_variants
+    sample_write_variants: n4.sample_write_variants,
+    assemble_book: n4.assemble_book
   }).addConditionalEdges(n4.select_next_chapter, nextChapterRouter, {
     ch_plan_chapter: n4.ch_plan_chapter,
     assemble_book: n4.assemble_book

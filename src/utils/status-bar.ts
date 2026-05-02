@@ -87,7 +87,7 @@ export function initStatusBar (): void {
   startTime = Date.now()
   const r = rows()
   // DECSTBM resets cursor to (1,1); immediately move to bottom of scroll region
-  process.stdout.write(`\x1b[1;${r - 3}r\x1b[${r - 3};1H`)
+  process.stdout.write(`\n\n\n\x1b[1;${r - 3}r\x1b[${r - 3};1H`)
   draw()
   timer = setInterval(draw, 1000)
   process.on('SIGWINCH', onResize)

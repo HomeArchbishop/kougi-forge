@@ -13,12 +13,19 @@ interface SpinnerHandle {
   update: (inputTokens: number, outputTokens: number, preview: string) => void
 }
 
+const spinnerManager = {
+  queue: [] as string[],
+}
+
 function startSpinner (label: string): SpinnerHandle {
   const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
   let i = 0
   let outTokens = 0
   let currentPreview = ''
   const startTime = Date.now()
+
+  const id = crypto.randomUUID()
+  spinnerManager.queue.unshift(id)
 
   if (!process.stdout.isTTY) {
     return {
@@ -31,25 +38,42 @@ function startSpinner (label: string): SpinnerHandle {
     }
   }
 
+  let isFirstPrint = true
+  const isCurrentFirstLine = spinnerManager.queue.length === 1
+
   const timer = setInterval(() => {
     const sec = ((Date.now() - startTime) / 1000).toFixed(1)
     const tokenStr = outTokens > 0 ? ` out:${outTokens}` : ' 请求中'
     const previewStr = currentPreview ? `  "${currentPreview}"` : ''
     const line = `   ⎿  ${frames[i++ % frames.length]} ${sec}s${tokenStr}${previewStr}`
+    const deltaY = spinnerManager.queue.findIndex(x => x === id)
+    if (!isFirstPrint) {
+      process.stdout.moveCursor(0, -deltaY)
+    } else {
+      if (!isCurrentFirstLine) {
+        process.stdout.write('\n')
+      }
+      isFirstPrint = false
+    }
     process.stdout.cursorTo(0)
     process.stdout.clearLine(1)
     process.stdout.write(line)
+    process.stdout.moveCursor(0, deltaY)
   }, 100)
 
   return {
     stop: (durationMs, usage) => {
       clearInterval(timer)
+      const deltaY = spinnerManager.queue.length - 1
+      process.stdout.moveCursor(0, -deltaY)
       process.stdout.cursorTo(0)
       process.stdout.clearLine(1)
       const sec = (durationMs / 1000).toFixed(1)
       const tokens = usage ? ` · ${usage.input_tokens ?? 0} in · ${usage.output_tokens ?? 0} out` : ''
       process.stdout.write(`${dim}   ⎿  ✓ ${label}  ${sec}s${tokens}${reset}\n`)
+      process.stdout.moveCursor(0, deltaY)
       refreshStatusBar()
+      spinnerManager.queue.splice(spinnerManager.queue.findIndex(x => x === id), 1)
     },
     update: (_inputTokens, outputTokens, preview) => {
       outTokens = outputTokens

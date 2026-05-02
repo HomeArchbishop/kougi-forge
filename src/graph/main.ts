@@ -114,6 +114,7 @@ export function buildMainGraph () {
     .addConditionalEdges(n.confirm_sample, sampleConfirmRouter, {
       select_next_chapter: n.select_next_chapter,
       sample_write_variants: n.sample_write_variants,
+      assemble_book: n.assemble_book,
     })
 
     // Phase 4 edges

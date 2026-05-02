@@ -1,5 +1,6 @@
 import { interrupt } from '@langchain/langgraph'
 
+import { isAutoYes } from '../../global-env.ts'
 import type { TextbookProject, WorkflowState } from '../../types/common.ts'
 import type { TextbookStateType } from '../../types/index.ts'
 import type { InterruptPayload } from '../../utils/logger.ts'
@@ -18,7 +19,7 @@ export function confirmSampleChapter (state: TextbookStateType): { textbookProje
     ],
   }
 
-  const userResponse = interrupt<InterruptPayload, string>(payload)
+  const userResponse = isAutoYes() ? '确认' : interrupt<InterruptPayload, string>(payload)
 
   const isApproved = userResponse === '确认'
 

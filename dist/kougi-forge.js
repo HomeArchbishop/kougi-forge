@@ -55017,6 +55017,29 @@ var config2 = {
   }
 };
 
+// src/global-env.ts
+function envTruthy(v) {
+  if (v === undefined || v === "")
+    return false;
+  const t = v.trim().toLowerCase();
+  return t === "1" || t === "true" || t === "yes" || t === "y";
+}
+function isAutoYes() {
+  return envTruthy(process.env.autoYes) || envTruthy(process.env.AUTO_YES);
+}
+function enableAutoYesEnv() {
+  process.env.autoYes = "1";
+}
+function autoYesResumeFromPayload(payload) {
+  const opts = payload.options ?? [];
+  for (const v of ["完成", "确认", "跳过"]) {
+    if (opts.some((o) => o.value === v))
+      return v;
+  }
+  const first = opts.find((o) => o.value !== "");
+  return first?.value ?? "";
+}
+
 // src/prompts/curriculum-architect.ts
 var curriculumArchitectPrompt = `你是一位资深教材架构设计师。你的任务是为教材设计完整的宏观结构。
 
@@ -66582,7 +66605,7 @@ ${toc}`;
       { label: "重新设计蓝图", value: "重新设计" }
     ]
   };
-  const userResponse = interrupt(payload);
+  const userResponse = isAutoYes() ? "确认" : interrupt(payload);
   const isApproved = userResponse === "确认";
   return {
     blueprint: {
@@ -66977,7 +67000,9 @@ ${artifactList}`,
       { label: "提出后续修改要求", value: "" }
     ]
   };
-  interrupt(payload);
+  if (!isAutoYes()) {
+    interrupt(payload);
+  }
   return {
     workflow: { ...state.workflow, currentStage: "done" }
   };
@@ -67590,7 +67615,7 @@ ${questionsText}`,
       { label: "跳过，使用默认设置", value: "跳过" }
     ]
   };
-  const userResponse = interrupt(payload);
+  const userResponse = isAutoYes() ? "跳过" : interrupt(payload);
   const updatedAnswers = { ...state.clarification.userAnswers };
   updatedAnswers[`round_${state.clarification.round + 1}`] = userResponse;
   const updatedInput = { ...state.userInput };
@@ -67731,7 +67756,7 @@ ${preview}
       { label: "重写样章", value: "重写" }
     ]
   };
-  const userResponse = interrupt(payload);
+  const userResponse = isAutoYes() ? "确认" : interrupt(payload);
   const isApproved = userResponse === "确认";
   let updatedStyleGuide = state.textbookProject.styleGuide;
   if (!isApproved && userResponse !== "重写") {
@@ -68351,6 +68376,7 @@ ${bold}USAGE${reset2}
 ${bold}OPTIONS${reset2}
   -r, --resume <session-id>        resume a session
   -l, --list                       list all sessions
+  -y, --yes                        auto-confirm all interrupts (also env: autoYes=1)
   -h, --help                       show help
 
 ${bold}EXAMPLES${reset2}
@@ -68413,6 +68439,8 @@ function buildInitialInput(initialInput) {
   };
 }
 async function promptInterrupt(payload) {
+  if (isAutoYes())
+    return autoYesResumeFromPayload(payload);
   if (!payload.options || payload.options.length === 0) {
     return promptUser();
   }
@@ -68464,7 +68492,8 @@ async function main() {
     options: {
       list: { type: "boolean", short: "l", default: false },
       resume: { type: "string", short: "r" },
-      help: { type: "boolean", short: "h", default: false }
+      help: { type: "boolean", short: "h", default: false },
+      yes: { type: "boolean", short: "y", default: false }
     },
     allowPositionals: true
   });
@@ -68476,6 +68505,8 @@ async function main() {
     await showSessions();
     return;
   }
+  if (values2.yes)
+    enableAutoYesEnv();
   assertConfigComplete();
   mkdirSync6(config2.persistence.checkpointDir, { recursive: true });
   const { threadId, initialInput } = await resolveSession({ resume: !!values2.resume, sessionId: values2.resume }, positionals);

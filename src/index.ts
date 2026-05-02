@@ -6,6 +6,7 @@ import { parseArgs } from 'node:util'
 import { Command } from '@langchain/langgraph'
 
 import { config } from './config.ts'
+import { autoYesResumeFromPayload, enableAutoYesEnv, isAutoYes } from './global-env.ts'
 import { compileMainGraph } from './graph/main.ts'
 import type { UserInput } from './types/index.ts'
 import { listThreads, loadLatestWorkflowStage, loadSessionHistory } from './utils/checkpointer.ts'
@@ -177,6 +178,7 @@ ${bold}USAGE${reset}
 ${bold}OPTIONS${reset}
   -r, --resume <session-id>        resume a session
   -l, --list                       list all sessions
+  -y, --yes                        auto-confirm all interrupts (also env: autoYes=1)
   -h, --help                       show help
 
 ${bold}EXAMPLES${reset}
@@ -250,6 +252,7 @@ function buildInitialInput (initialInput: string): object {
 }
 
 async function promptInterrupt (payload: InterruptPayload): Promise<string> {
+  if (isAutoYes()) return autoYesResumeFromPayload(payload)
   if (!payload.options || payload.options.length === 0) {
     return promptUser()
   }
@@ -308,12 +311,15 @@ async function main () {
       list: { type: 'boolean', short: 'l', default: false },
       resume: { type: 'string', short: 'r' },
       help: { type: 'boolean', short: 'h', default: false },
+      yes: { type: 'boolean', short: 'y', default: false },
     },
     allowPositionals: true,
   })
 
   if (values.help) { printHelp(); return }
   if (values.list) { await showSessions(); return }
+
+  if (values.yes) enableAutoYesEnv()
 
   assertConfigComplete()
 

@@ -1,5 +1,6 @@
 import { interrupt } from '@langchain/langgraph'
 
+import { isAutoYes } from '../../global-env.ts'
 import { clarificationQuestionsPrompt } from '../../prompts/requirement-analyst.ts'
 import type { ClarificationState, TextbookStateType, UserInput } from '../../types/index.ts'
 import type { InterruptPayload } from '../../utils/logger.ts'
@@ -35,7 +36,7 @@ export async function askClarification (state: TextbookStateType): Promise<{ cla
     ],
   }
 
-  const userResponse = interrupt<InterruptPayload, string>(payload)
+  const userResponse = isAutoYes() ? '跳过' : interrupt<InterruptPayload, string>(payload)
 
   const updatedAnswers = { ...state.clarification.userAnswers }
   updatedAnswers[`round_${state.clarification.round + 1}`] = userResponse

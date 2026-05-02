@@ -1,6 +1,7 @@
 import { interrupt } from '@langchain/langgraph'
 
 import { config } from '../../config.ts'
+import { isAutoYes } from '../../global-env.ts'
 import { consistencyCheckerPrompt, formatterPrompt } from '../../prompts/consistency-checker.ts'
 import type { FinalBook, TextbookStateType, WorkflowState } from '../../types/index.ts'
 import { buildOutputDir } from '../../utils/context-builder.ts'
@@ -178,7 +179,9 @@ ${artifactList}`,
     ],
   }
 
-  interrupt<string, string>(payload as unknown as string)
+  if (!isAutoYes()) {
+    interrupt<InterruptPayload, string>(payload)
+  }
 
   return {
     workflow: { ...state.workflow, currentStage: 'done' },

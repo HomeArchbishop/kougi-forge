@@ -1,5 +1,6 @@
 import { interrupt } from '@langchain/langgraph'
 
+import { isAutoYes } from '../../global-env.ts'
 import type { Blueprint, TextbookStateType, WorkflowState } from '../../types/index.ts'
 import type { InterruptPayload } from '../../utils/logger.ts'
 
@@ -28,7 +29,7 @@ ${toc}`
     ],
   }
 
-  const userResponse = interrupt<InterruptPayload, string>(payload)
+  const userResponse = isAutoYes() ? '确认' : interrupt<InterruptPayload, string>(payload)
 
   const isApproved = userResponse === '确认'
 

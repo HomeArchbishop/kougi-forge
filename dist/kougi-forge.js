@@ -68498,7 +68498,10 @@ async function main() {
     logSessionHistory(history);
   }
   const graph = compileMainGraph();
-  const threadConfig = { configurable: { thread_id: threadId } };
+  const threadConfig = {
+    configurable: { thread_id: threadId },
+    resourceLimits: 999
+  };
   let currentInput = initialInput ? buildInitialInput(initialInput) : null;
   let completed = false;
   let shuttingDown = false;

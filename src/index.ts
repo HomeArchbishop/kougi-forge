@@ -343,7 +343,10 @@ async function main () {
   }
 
   const graph = compileMainGraph()
-  const threadConfig = { configurable: { thread_id: threadId } }
+  const threadConfig = {
+    configurable: { thread_id: threadId },
+    resourceLimits: 999,
+  }
 
   let currentInput: any = initialInput ? buildInitialInput(initialInput) : null
   let completed = false

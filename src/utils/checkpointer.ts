@@ -6,7 +6,7 @@ import type { RunnableConfig } from '@langchain/core/runnables'
 import type { BaseCheckpointSaver, Checkpoint, CheckpointListOptions, CheckpointMetadata, CheckpointPendingWrite, CheckpointTuple, PendingWrite, SerializerProtocol } from '@langchain/langgraph-checkpoint'
 
 import { config } from '../config.ts'
-import type { Blueprint, TextbookProject, UserInput, WorkflowState } from '../types/common.ts'
+import type { Blueprint, ChapterPlan, TextbookProject, UserInput, WorkflowState } from '../types/common.ts'
 import { NODE_META, STAGE_LABELS, WORKFLOW_STAGE_MAP } from './stage-config.ts'
 
 type ChannelVersions = Record<string, number | string>
@@ -14,6 +14,7 @@ type ChannelVersions = Record<string, number | string>
 // The subset of TextbookState channel values we care about for persistence queries.
 // All fields are optional because a checkpoint may be taken before they are populated.
 interface ChannelValues {
+  chapterPlans?: Record<string, ChapterPlan>
   userInput?: UserInput
   textbookProject?: TextbookProject
   blueprint?: Blueprint
@@ -255,15 +256,14 @@ export async function loadLatestWorkflowStage (threadId: string): Promise<Resume
   const cv = stored?.checkpoint.channel_values
   const wf = cv?.workflow
   const toc = cv?.blueprint?.tableOfContents ?? []
-  const completedChapters = wf?.completedChapters ?? []
 
   const stage = wf?.currentStage
     ? WORKFLOW_STAGE_MAP[wf.currentStage]
-    : 0
+    : 1
 
   return {
     stage,
-    chapterIndex: completedChapters.length,
+    chapterIndex: cv?.workflow?.currentChapterIndex ?? 0,
     totalChapters: toc.length,
     title: cv?.textbookProject?.title ?? '',
   }
@@ -274,7 +274,7 @@ export interface HistoryEvent {
   stage: number
   stageLabel: string
   title: string
-  completedChapters: number
+  currentChapterId: string | null
   totalChapters: number
 }
 
@@ -283,7 +283,6 @@ export async function loadSessionHistory (threadId: string): Promise<HistoryEven
   if (!index || index.checkpoints.length === 0) return []
 
   const events: HistoryEvent[] = []
-  const seen = new Set<string>()
 
   // checkpoint[N].branch:to:X means X ran and produced checkpoint[N+1]
   // so we pair: pendingNodeName from checkpoint[N], state from checkpoint[N+1]
@@ -293,19 +292,18 @@ export async function loadSessionHistory (threadId: string): Promise<HistoryEven
     const stored = await readJson<StoredCheckpoint>(getCheckpointPath(threadId, cid))
     if (!stored) continue
 
-    if (pendingNodeName && !seen.has(pendingNodeName)) {
-      seen.add(pendingNodeName)
+    // Do not dedupe by nodeName: stage-4 nodes repeat once per chapter.
+    if (pendingNodeName) {
       const meta = NODE_META[pendingNodeName]
       if (meta) {
         const cv = stored.checkpoint.channel_values
         const toc = cv?.blueprint?.tableOfContents ?? []
-        const completedChapters = cv?.workflow?.completedChapters ?? []
         events.push({
           nodeName: pendingNodeName,
           stage: meta.stage,
           stageLabel: STAGE_LABELS[meta.stage] ?? '',
           title: cv?.textbookProject?.title ?? '',
-          completedChapters: completedChapters.length,
+          currentChapterId: cv?.workflow?.currentChapterId ?? null,
           totalChapters: toc.length,
         })
       }

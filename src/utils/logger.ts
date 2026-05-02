@@ -308,7 +308,7 @@ export function logSessionHistory (events: Array<{
   stage: number
   stageLabel: string
   title: string
-  completedChapters: number
+  currentChapterId: string | null
   totalChapters: number
 }>): void {
   if (events.length === 0) return
@@ -326,7 +326,7 @@ export function logSessionHistory (events: Array<{
     const meta = NODE_META[ev.nodeName]
     const label = meta?.message ?? ev.nodeName
     const extra = ev.totalChapters > 0 && ev.stage === 4
-      ? `  ${c.dim}${ev.completedChapters + 1}/${ev.totalChapters}章${c.reset}`
+      ? `  ${c.dim}${ev.currentChapterId ? `${ev.currentChapterId} ` : ''} (共${ev.totalChapters}章)${c.reset}`
       : ''
     console.log(`  ${c.dim}✓${c.reset} ${label}${extra}`)
   }

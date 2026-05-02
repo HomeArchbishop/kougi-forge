@@ -24,7 +24,7 @@ export const NODES = {
   confirm_sample: { stage: 3, message: '确认样章' },
 
   // Phase 4: Chapter Production
-  select_next_chapter: { stage: 4 },
+  select_next_chapter: { stage: 4, message: '选择章节' },
   ch_plan_chapter: { stage: 4, message: '规划章节' },
   ch_research: { stage: 4, message: '调研资料' },
   ch_write_variants: { stage: 4, message: '撰写多版本草稿' },
@@ -40,7 +40,7 @@ export const NODES = {
   consistency_check: { stage: 5, message: '一致性检查' },
   global_revision: { stage: 5, message: '全书修订' },
   format_output: { stage: 5, message: '输出文件' },
-  final_confirmation: { stage: 5 },
+  final_confirmation: { stage: 5, message: '最终确认' },
 } as const satisfies Record<string, NodeMeta>
 
 export type NodeName = keyof typeof NODES

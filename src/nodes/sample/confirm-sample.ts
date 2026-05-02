@@ -1,7 +1,7 @@
 import { interrupt } from '@langchain/langgraph'
 
 import { isAutoYes } from '../../global-env.ts'
-import type { TextbookProject, WorkflowState } from '../../types/common.ts'
+import type { TextbookProject, WorkflowStage, WorkflowState } from '../../types/common.ts'
 import type { TextbookStateType } from '../../types/index.ts'
 import type { InterruptPayload } from '../../utils/logger.ts'
 
@@ -28,12 +28,21 @@ export function confirmSampleChapter (state: TextbookStateType): { textbookProje
     updatedStyleGuide = `${updatedStyleGuide}\n\n用户补充的风格要求：${userResponse}`
   }
 
+  const totalChapters = state.blueprint.tableOfContents.length
+
+  let nextStage: WorkflowStage = 'chapter_production'
+  if (!isApproved) {
+    nextStage = 'sample_chapter'
+  } else if (totalChapters === 1) {
+    nextStage = 'book_assembly'
+  }
+
   return {
     textbookProject: { ...state.textbookProject, styleGuide: updatedStyleGuide },
     workflow: {
       ...state.workflow,
-      currentStage: isApproved ? 'chapter_production' : 'sample_chapter',
-      currentChapterIndex: isApproved ? 1 : 0,
+      currentStage: nextStage,
+      currentChapterIndex: 0,
     },
   }
 }

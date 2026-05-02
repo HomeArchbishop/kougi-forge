@@ -65994,7 +65994,7 @@ var NODES = {
   sample_write_variants: { stage: 3, message: "撰写样章多版本" },
   sample_synthesize: { stage: 3, message: "综合样章" },
   confirm_sample: { stage: 3, message: "确认样章" },
-  select_next_chapter: { stage: 4 },
+  select_next_chapter: { stage: 4, message: "选择章节" },
   ch_plan_chapter: { stage: 4, message: "规划章节" },
   ch_research: { stage: 4, message: "调研资料" },
   ch_write_variants: { stage: 4, message: "撰写多版本草稿" },
@@ -66008,7 +66008,7 @@ var NODES = {
   consistency_check: { stage: 5, message: "一致性检查" },
   global_revision: { stage: 5, message: "全书修订" },
   format_output: { stage: 5, message: "输出文件" },
-  final_confirmation: { stage: 5 }
+  final_confirmation: { stage: 5, message: "最终确认" }
 };
 
 // src/utils/stage-config.ts
@@ -66258,7 +66258,7 @@ ${c.dim}历史记录 ${title}${c.reset}`);
     }
     const meta3 = NODE_META[ev.nodeName];
     const label = meta3?.message ?? ev.nodeName;
-    const extra = ev.totalChapters > 0 && ev.stage === 4 ? `  ${c.dim}${ev.completedChapters + 1}/${ev.totalChapters}章${c.reset}` : "";
+    const extra = ev.totalChapters > 0 && ev.stage === 4 ? `  ${c.dim}${ev.currentChapterId ? `${ev.currentChapterId} ` : ""} (共${ev.totalChapters}章)${c.reset}` : "";
     console.log(`  ${c.dim}✓${c.reset} ${label}${extra}`);
   }
   console.log();
@@ -66271,10 +66271,9 @@ var c2 = {
   dim: "\x1B[2m",
   cyan: "\x1B[36m"
 };
-var NODE_STAGE = Object.fromEntries(Object.entries(NODE_META).map(([k, v]) => [k, v.stage]));
 var STAGE_NAMES = Object.values(STAGE_LABELS);
 var active = false;
-var currentStage = 0;
+var currentStage = 1;
 var chapterIndex = 0;
 var totalChapters = 0;
 var bookTitle = "";
@@ -66351,12 +66350,11 @@ function destroyStatusBar() {
   process.stdout.write(`\x1B[${r};1H\x1B[2K`);
   process.stdout.write(`\x1B[${r - 2};1H`);
 }
-function updateStageFromNode(nodeName) {
-  const stage = NODE_STAGE[nodeName];
-  if (stage !== undefined && stage !== currentStage) {
-    currentStage = stage;
-    draw();
-  }
+function updateStage(stageName) {
+  if (!stageName)
+    return;
+  currentStage = WORKFLOW_STAGE_MAP[stageName];
+  draw();
 }
 function setStage(stage) {
   if (stage > 0 && stage !== currentStage) {
@@ -67048,8 +67046,6 @@ ${draft.content.slice(0, 3000)}`, `章节摘要(${chapterId})`);
     workflow: {
       ...state.workflow,
       completedChapters,
-      currentChapterIndex: nextIndex,
-      currentChapterId: null,
       revisionRound: 0,
       currentStage: nextIndex >= totalChapters2 ? "book_assembly" : "chapter_production"
     }
@@ -67431,13 +67427,14 @@ async function reviewAll(state) {
 
 // src/nodes/chapter/select-chapter.ts
 function selectNextChapter(state) {
-  const idx = state.workflow.currentChapterIndex;
-  const chapter = state.blueprint.tableOfContents[idx];
+  const nextIndex = state.workflow.currentChapterIndex + 1;
+  const chapter = state.blueprint.tableOfContents[nextIndex];
   return {
     workflow: {
       ...state.workflow,
       currentStage: chapter ? "chapter_production" : "book_assembly",
       currentChapterId: chapter?.chapterId ?? null,
+      currentChapterIndex: nextIndex,
       revisionRound: 0
     }
   };
@@ -67702,7 +67699,7 @@ ${JSON.stringify(state.userInput, null, 2)}`, "生成项目定义");
     workflow: {
       currentStage: "blueprint",
       currentChapterId: null,
-      currentChapterIndex: 0,
+      currentChapterIndex: -1,
       revisionRound: 0,
       revisionChapterIndex: 0,
       maxRevisionRounds: 3,
@@ -67764,12 +67761,19 @@ ${preview}
 
 用户补充的风格要求：${userResponse}`;
   }
+  const totalChapters2 = state.blueprint.tableOfContents.length;
+  let nextStage = "chapter_production";
+  if (!isApproved) {
+    nextStage = "sample_chapter";
+  } else if (totalChapters2 === 1) {
+    nextStage = "book_assembly";
+  }
   return {
     textbookProject: { ...state.textbookProject, styleGuide: updatedStyleGuide },
     workflow: {
       ...state.workflow,
-      currentStage: isApproved ? "chapter_production" : "sample_chapter",
-      currentChapterIndex: isApproved ? 1 : 0
+      currentStage: nextStage,
+      currentChapterIndex: 0
     }
   };
 }
@@ -68035,11 +68039,10 @@ async function loadLatestWorkflowStage(threadId) {
   const cv = stored?.checkpoint.channel_values;
   const wf = cv?.workflow;
   const toc = cv?.blueprint?.tableOfContents ?? [];
-  const completedChapters = wf?.completedChapters ?? [];
-  const stage = wf?.currentStage ? WORKFLOW_STAGE_MAP[wf.currentStage] : 0;
+  const stage = wf?.currentStage ? WORKFLOW_STAGE_MAP[wf.currentStage] : 1;
   return {
     stage,
-    chapterIndex: completedChapters.length,
+    chapterIndex: cv?.workflow?.currentChapterIndex ?? 0,
     totalChapters: toc.length,
     title: cv?.textbookProject?.title ?? ""
   };
@@ -68049,25 +68052,22 @@ async function loadSessionHistory(threadId) {
   if (!index2 || index2.checkpoints.length === 0)
     return [];
   const events = [];
-  const seen = new Set;
   let pendingNodeName;
   for (const cid of index2.checkpoints) {
     const stored = await readJson(getCheckpointPath(threadId, cid));
     if (!stored)
       continue;
-    if (pendingNodeName && !seen.has(pendingNodeName)) {
-      seen.add(pendingNodeName);
+    if (pendingNodeName) {
       const meta3 = NODE_META[pendingNodeName];
       if (meta3) {
         const cv = stored.checkpoint.channel_values;
         const toc = cv?.blueprint?.tableOfContents ?? [];
-        const completedChapters = cv?.workflow?.completedChapters ?? [];
         events.push({
           nodeName: pendingNodeName,
           stage: meta3.stage,
           stageLabel: STAGE_LABELS[meta3.stage] ?? "",
           title: cv?.textbookProject?.title ?? "",
-          completedChapters: completedChapters.length,
+          currentChapterId: cv?.workflow?.currentChapterId ?? null,
           totalChapters: toc.length
         });
       }
@@ -68135,6 +68135,8 @@ function blueprintConfirmRouter(state2) {
 function sampleConfirmRouter(state2) {
   if (state2.workflow.currentStage === "chapter_production")
     return n3.select_next_chapter;
+  if (state2.workflow.currentStage === "book_assembly")
+    return n3.assemble_book;
   return n3.sample_write_variants;
 }
 function nextChapterRouter(state2) {
@@ -68156,7 +68158,7 @@ function chapterQualityRouter(state2) {
 }
 function chapterLoopRouter(state2) {
   const totalChapters2 = state2.blueprint.tableOfContents.length;
-  if (state2.workflow.currentChapterIndex >= totalChapters2)
+  if (state2.workflow.currentChapterIndex + 1 >= totalChapters2)
     return n3.assemble_book;
   return n3.select_next_chapter;
 }
@@ -68468,7 +68470,8 @@ async function processEvent(event) {
       }
       continue;
     }
-    updateStageFromNode(nodeName);
+    const workflow = update?.workflow;
+    updateStage(workflow?.currentStage);
     const u = update;
     const toc = u?.blueprint?.tableOfContents;
     const wf = u?.workflow;
@@ -68531,7 +68534,7 @@ async function main() {
   const graph = compileMainGraph();
   const threadConfig = {
     configurable: { thread_id: threadId },
-    resourceLimits: 999
+    recursionLimit: 999
   };
   let currentInput = initialInput ? buildInitialInput(initialInput) : null;
   let completed = false;

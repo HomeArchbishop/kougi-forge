@@ -8,10 +8,10 @@ import { Command } from '@langchain/langgraph'
 import { config } from './config.ts'
 import { autoYesResumeFromPayload, enableAutoYesEnv, isAutoYes } from './global-env.ts'
 import { compileMainGraph } from './graph/main.ts'
-import type { UserInput } from './types/index.ts'
+import type { UserInput, WorkflowState } from './types/index.ts'
 import { listThreads, loadLatestWorkflowStage, loadSessionHistory } from './utils/checkpointer.ts'
 import { initTokenCounter, type InterruptPayload, logError, logInterrupt, logResume, logSaved, logSessionHistory, logStage, logTokenSummary, setTokensUpdatedCallback } from './utils/logger.ts'
-import { destroyStatusBar, initStatusBar, refreshStatusBar, setBookTitle, setChapterProgress, setStage, updateStageFromNode } from './utils/status-bar.ts'
+import { destroyStatusBar, initStatusBar, refreshStatusBar, setBookTitle, setChapterProgress, setStage, updateStage } from './utils/status-bar.ts'
 import { getConfigPath, getConfigValue, KNOWN_KEYS, loadUserConfig, rmConfigValue, saveUserConfig, setConfigValue, validateConfig } from './utils/user-config.ts'
 
 const dim = '\x1b[2m'
@@ -282,7 +282,8 @@ async function processEvent (event: Record<string, unknown>): Promise<InterruptP
       }
       continue
     }
-    updateStageFromNode(nodeName)
+    const workflow = (update as { workflow?: WorkflowState })?.workflow
+    updateStage(workflow?.currentStage)
     const u = update as Record<string, any> | null
     const toc = u?.blueprint?.tableOfContents
     const wf = u?.workflow
@@ -351,7 +352,7 @@ async function main () {
   const graph = compileMainGraph()
   const threadConfig = {
     configurable: { thread_id: threadId },
-    resourceLimits: 999,
+    recursionLimit: 999,
   }
 
   let currentInput: any = initialInput ? buildInitialInput(initialInput) : null

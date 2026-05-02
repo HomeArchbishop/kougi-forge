@@ -1,6 +1,7 @@
 import { config } from '../config.ts'
+import type { WorkflowStage } from '../types/common.ts'
 import { getTokenStats } from './logger.ts'
-import { NODE_META, STAGE_LABELS } from './stage-config.ts'
+import { STAGE_LABELS, WORKFLOW_STAGE_MAP } from './stage-config.ts'
 
 const c = {
   reset: '\x1b[0m',
@@ -9,16 +10,12 @@ const c = {
   cyan: '\x1b[36m',
 }
 
-const NODE_STAGE: Record<string, number> = Object.fromEntries(
-  Object.entries(NODE_META).map(([k, v]) => [k, v.stage]),
-)
-
 const STAGE_NAMES = Object.values(STAGE_LABELS)
 
 // ─── state ────────────────────────────────────────────────────────────────────
 
 let active = false
-let currentStage = 0
+let currentStage = 1
 let chapterIndex = 0
 let totalChapters = 0
 let bookTitle = ''
@@ -109,12 +106,10 @@ export function destroyStatusBar (): void {
   process.stdout.write(`\x1b[${r - 2};1H`)
 }
 
-export function updateStageFromNode (nodeName: string): void {
-  const stage = NODE_STAGE[nodeName]
-  if (stage !== undefined && stage !== currentStage) {
-    currentStage = stage
-    draw()
-  }
+export function updateStage (stageName: WorkflowStage | undefined): void {
+  if (!stageName) return
+  currentStage = WORKFLOW_STAGE_MAP[stageName]
+  draw()
 }
 
 export function setStage (stage: number): void {

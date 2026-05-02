@@ -31,7 +31,7 @@ export async function generateProjectDef (state: TextbookStateType): Promise<{ t
     workflow: {
       currentStage: 'blueprint',
       currentChapterId: null,
-      currentChapterIndex: 0,
+      currentChapterIndex: -1,
       revisionRound: 0,
       revisionChapterIndex: 0,
       maxRevisionRounds: 3,

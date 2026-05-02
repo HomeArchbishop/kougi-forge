@@ -26,6 +26,7 @@ export function blueprintConfirmRouter (state: TextbookStateType): string {
 
 export function sampleConfirmRouter (state: TextbookStateType): string {
   if (state.workflow.currentStage === 'chapter_production') return n.select_next_chapter
+  if (state.workflow.currentStage === 'book_assembly') return n.assemble_book
   return n.sample_write_variants
 }
 
@@ -51,7 +52,7 @@ export function chapterQualityRouter (state: TextbookStateType): string {
 
 export function chapterLoopRouter (state: TextbookStateType): string {
   const totalChapters = state.blueprint.tableOfContents.length
-  if (state.workflow.currentChapterIndex >= totalChapters) return n.assemble_book
+  if (state.workflow.currentChapterIndex + 1 >= totalChapters) return n.assemble_book
   return n.select_next_chapter
 }
 

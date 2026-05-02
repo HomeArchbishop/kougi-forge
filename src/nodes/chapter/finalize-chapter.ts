@@ -53,8 +53,6 @@ export async function finalizeChapter (state: TextbookStateType): Promise<{
     workflow: {
       ...state.workflow,
       completedChapters,
-      currentChapterIndex: nextIndex,
-      currentChapterId: null,
       revisionRound: 0,
       currentStage: nextIndex >= totalChapters ? 'book_assembly' : 'chapter_production',
     },

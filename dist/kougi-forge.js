@@ -1526,7 +1526,6 @@ var require_base64_js = __commonJS((exports) => {
 });
 
 // src/index.ts
-import { spawn } from "node:child_process";
 import { mkdirSync as mkdirSync6 } from "node:fs";
 import { createInterface } from "node:readline";
 import { parseArgs } from "node:util";
@@ -68500,7 +68499,6 @@ async function main() {
   }
   const graph = compileMainGraph();
   const threadConfig = { configurable: { thread_id: threadId } };
-  const caffeinate = spawn("caffeinate", ["-i"], { stdio: "ignore" });
   let currentInput = initialInput ? buildInitialInput(initialInput) : null;
   let completed = false;
   let shuttingDown = false;
@@ -68508,7 +68506,6 @@ async function main() {
     if (shuttingDown)
       process.exit(1);
     shuttingDown = true;
-    caffeinate.kill();
     destroyStatusBar();
     console.log();
     logTokenSummary();
@@ -68541,7 +68538,6 @@ async function main() {
       break;
     }
   }
-  caffeinate.kill();
   destroyStatusBar();
   logTokenSummary();
   if (completed)

@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import { spawn } from 'node:child_process'
 import { mkdirSync } from 'node:fs'
 import { createInterface } from 'node:readline'
 import { parseArgs } from 'node:util'
@@ -345,7 +344,6 @@ async function main () {
 
   const graph = compileMainGraph()
   const threadConfig = { configurable: { thread_id: threadId } }
-  const caffeinate = spawn('caffeinate', ['-i'], { stdio: 'ignore' })
 
   let currentInput: any = initialInput ? buildInitialInput(initialInput) : null
   let completed = false
@@ -354,7 +352,6 @@ async function main () {
   process.on('SIGINT', () => {
     if (shuttingDown) process.exit(1)
     shuttingDown = true
-    caffeinate.kill()
     destroyStatusBar()
     console.log()
     logTokenSummary()
@@ -387,7 +384,6 @@ async function main () {
     }
   }
 
-  caffeinate.kill()
   destroyStatusBar()
   logTokenSummary()
   if (completed) console.log(`\n${bold}done${reset}`)

@@ -66316,7 +66316,7 @@ function draw() {
   const brandRaw = `kougi-forge  ${config2.llm.model}${titleSuffix}`;
   const sepFill = Math.max(0, w - brandRaw.length - 2);
   const sep = `${c2.dim} ${c2.reset}${brand}${c2.dim}  ${"─".repeat(sepFill)}${c2.reset}`;
-  const meta3 = `${c2.dim} ${config2.meta.license} · ${config2.meta.github} · v${"0.1.0"}${c2.reset}`;
+  const meta3 = `${c2.dim} ${config2.meta.license} · ${config2.meta.github} · v${"0.2.0"}${c2.reset}`;
   process.stdout.write("\x1B7");
   process.stdout.write(`\x1B[${r - 2};1H\x1B[2K${sep}`);
   process.stdout.write(`\x1B[${r - 1};1H\x1B[2K ${phases}    ${stats}`);

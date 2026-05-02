@@ -66498,6 +66498,38 @@ async function streamWithResume(messages, onChunk, context2) {
   }
   return { content: accumulated, usage };
 }
+var JSON_REPAIR_SYSTEM = `你是 JSON 修复助手。输入是一段本应可被 JSON.parse 解析的文本，但可能含有：markdown 代码块、前后说明文字、截断、转义错误、尾随逗号、单引号代替双引号等。
+你的任务：根据原文语义，输出**唯一一段**合法、完整的 JSON（对象或数组）。
+硬性要求：只输出 JSON 本体，不要 markdown 围栏、不要解释、不要其它任何字符。`;
+function stripJsonFences(raw) {
+  return raw.replace(/^```(?:json)?\n?/i, "").replace(/\n?```$/i, "").trim();
+}
+function tryParseLlmJson(raw) {
+  const cleaned = stripJsonFences(raw);
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+    if (!jsonMatch)
+      return null;
+    try {
+      return JSON.parse(jsonMatch[0]);
+    } catch {
+      return null;
+    }
+  }
+}
+var MAX_JSON_REPAIR_ATTEMPTS = 2;
+async function repairJsonWithLlm(malformed, context2) {
+  const cap = 80000;
+  const body = malformed.length > cap ? `${malformed.slice(0, cap)}
+
+…(已截断，上文为模型原始输出开头)` : malformed;
+  const user2 = `以下文本无法被 JSON.parse。请修复为合法 JSON，仅输出 JSON：
+
+${body}`;
+  return llmCall(JSON_REPAIR_SYSTEM, user2, context2 ? `${context2}·JSON修复` : "JSON修复");
+}
 async function llmCall(systemPrompt, userMessage, context2) {
   const label = context2 ?? "LLM调用";
   logLLMCall(label);
@@ -66539,17 +66571,22 @@ async function llmJsonCall(systemPrompt, userMessage, context2) {
     }, context2);
     trackTokens(usage?.input_tokens ?? 0, usage?.output_tokens ?? outputTokens);
     spinner.stop(Date.now() - start, usage);
-    const cleaned = raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
-    try {
-      return JSON.parse(cleaned);
-    } catch {
-      logWarn("JSON 解析失败，尝试提取 JSON 部分...");
-      const jsonMatch = cleaned.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
-      if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]);
+    let payload = tryParseLlmJson(raw);
+    if (payload !== null)
+      return payload;
+    logWarn("JSON 解析失败，尝试用 LLM 修复…");
+    let toFix = raw;
+    for (let i = 0;i < MAX_JSON_REPAIR_ATTEMPTS; i++) {
+      const repaired = await repairJsonWithLlm(toFix, context2);
+      payload = tryParseLlmJson(repaired);
+      if (payload !== null)
+        return payload;
+      toFix = repaired;
+      if (i < MAX_JSON_REPAIR_ATTEMPTS - 1) {
+        logWarn(`LLM JSON 修复第 ${i + 1} 次输出仍非法，将再次修复…`);
       }
-      throw new Error(`无法解析 LLM 返回的 JSON: ${cleaned.slice(0, 200)}`);
     }
+    throw new Error(`无法解析 LLM 返回的 JSON（已尝试 ${MAX_JSON_REPAIR_ATTEMPTS} 次修复）: ${stripJsonFences(raw).slice(0, 200)}`);
   } catch (e) {
     spinner.stop(Date.now() - start);
     throw e;

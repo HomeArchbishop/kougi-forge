@@ -8,9 +8,9 @@
   },
   "scripts": {
     "start": "bun run src/index.ts",
-    "dev": "bun --hot src/index.ts",
-    "build": "bun build src/index.ts --outfile dist/kougi-forge.js --target node",
-    "prepare": "git config core.hooksPath .githooks",
+    "dev": "./scripts/dev",
+    "build": "./scripts/build",
+    "prepare": "git config core.hooksPath scripts/githooks",
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit"
   },

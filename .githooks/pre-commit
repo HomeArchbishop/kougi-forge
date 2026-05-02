@@ -1,4 +1,0 @@
-#!/bin/sh
-set -e
-bun build src/index.ts --outfile dist/kougi-forge.js --target node
-git add dist/kougi-forge.js

@@ -73,7 +73,7 @@ function draw (): void {
   const sepFill = Math.max(0, w - brandRaw.length - 2)
   const sep = `${c.dim} ${c.reset}${brand}${c.dim}  ${'─'.repeat(sepFill)}${c.reset}`
 
-  const meta = `${c.dim} ${config.meta.license} · ${config.meta.github}${c.reset}`
+  const meta = `${c.dim} ${config.meta.license} · ${config.meta.github} · v${process.env.VERSION ?? 'dev'}${c.reset}`
 
   process.stdout.write('\x1b7')
   process.stdout.write(`\x1b[${r - 2};1H\x1b[2K${sep}`)

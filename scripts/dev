@@ -1,0 +1,7 @@
+VERSION=$(node -p "require('./package.json').version")-dev
+
+bun build src/index.ts \
+  --watch \
+  --outfile dist/kougi-forge.js \
+  --target node \
+  --define "process.env.VERSION='$VERSION'"

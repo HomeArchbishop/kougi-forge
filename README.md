@@ -20,43 +20,64 @@ bun add -g kougi-forge
 
 ## 配置
 
-首次使用前，设置必填项：
+kougi-forge 将配置存储在用户级配置文件中：
+
+- **macOS / Linux** — `~/.config/kougi-forge/config.json`
+- **Windows** — `%APPDATA%\kougi-forge\config.json`
+
+### LLM Profile
+
+LLM 连接信息通过 **profile** 管理，可以保存多套配置并随时切换。
 
 ```bash
-kougi-forge config set llm.apiKey   <你的 API Key>
-kougi-forge config set llm.model    <模型名称>
+# 添加一个 profile
+kougi-forge config profile add openai
+kougi-forge config profile set openai apiKey  sk-...
+kougi-forge config profile set openai model   gpt-4o
+kougi-forge config profile set openai baseUrl https://api.openai.com/v1  # 可选
+
+# 再添加一个（例如本地模型）
+kougi-forge config profile add local
+kougi-forge config profile set local apiKey  anything
+kougi-forge config profile set local baseUrl http://localhost:11434/v1
+kougi-forge config profile set local model   llama3.2
+
+# 切换
+kougi-forge config profile use local
+kougi-forge config profile use openai
+
+# 查看所有 profile
+kougi-forge config profile list
+
+# 查看某个 profile 的详情
+kougi-forge config profile show openai
 ```
 
-查看所有配置项及当前值：
+每个 profile 支持以下字段：
+
+| 字段 | 说明 | 必填 | 默认值 |
+|------|------|------|--------|
+| `apiKey` | API Key | ✓ | — |
+| `model` | 模型名称 | ✓ | — |
+| `provider` | 服务商名称 | | `openai` |
+| `baseUrl` | API 地址 | | `https://api.openai.com/v1` |
+| `maxRetries` | 失败后最大重试次数 | | `5` |
+| `requestTimeoutMs` | 请求超时时间（毫秒） | | `600000` |
+
+### 通用配置
 
 ```bash
-kougi-forge config list
+kougi-forge config set output.dir ./my-output          # 设置输出目录
+kougi-forge config set persistence.checkpointDir /path # 设置检查点目录
+kougi-forge config list                                 # 查看当前所有配置
 ```
 
-### 配置项说明
-
-| 配置项 | 说明 | 必填 | 默认值 |
-|--------|------|------|--------|
-| `llm.apiKey` | LLM 服务商 API Key | ✓ | — |
-| `llm.model` | 模型名称（如 `gpt-4o`） | ✓ | — |
-| `llm.provider` | 服务商名称 | | `openai` |
-| `llm.baseUrl` | API 地址 | | `https://api.openai.com/v1` |
-| `llm.maxRetries` | 失败后最大重试次数 | | `5` |
-| `llm.requestTimeoutMs` | 请求超时时间（毫秒） | | `600000` |
-| `output.dir` | 生成文件的输出目录 | | `./output` |
-| `persistence.checkpointDir` | 会话检查点目录 | | 平台默认¹ |
+| 配置项 | 说明 | 默认值 |
+|--------|------|--------|
+| `output.dir` | 生成文件的输出目录 | `./output` |
+| `persistence.checkpointDir` | 会话检查点目录 | 平台默认¹ |
 
 > ¹ macOS/Linux：`~/.cache/kougi-forge/checkpoints` · Windows：`%LOCALAPPDATA%\kougi-forge\checkpoints`
-
-### 配置管理命令
-
-```bash
-kougi-forge config list                     # 查看所有配置项和当前值
-kougi-forge config get llm.model            # 查看单个配置项
-kougi-forge config set llm.baseUrl <url>    # 设置配置项
-kougi-forge config rm  llm.baseUrl          # 删除配置项（恢复默认值）
-kougi-forge config --help                   # 查看帮助
-```
 
 ## 使用
 

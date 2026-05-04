@@ -54896,14 +54896,16 @@ function getDefaultCheckpointDir() {
   return join(homedir(), ".cache", "kougi-forge", "checkpoints");
 }
 var KNOWN_KEYS = {
-  "llm.provider": { description: "LLM provider (openai / anthropic / ...)", defaultValue: "openai" },
-  "llm.apiKey": { description: "API key", required: true, secret: true },
-  "llm.baseUrl": { description: "API base URL", defaultValue: "https://api.openai.com" },
-  "llm.model": { description: "Model name", required: true },
-  "llm.maxRetries": { description: "Max retry attempts", defaultValue: "5" },
-  "llm.requestTimeoutMs": { description: "Request timeout (ms)", defaultValue: "600000" },
   "output.dir": { description: "Output directory", defaultValue: "./output" },
   "persistence.checkpointDir": { description: "Checkpoint directory", defaultValue: getDefaultCheckpointDir() }
+};
+var PROFILE_KEYS = {
+  provider: { description: "LLM provider (openai / anthropic / ...)", defaultValue: "openai" },
+  apiKey: { description: "API key", required: true, secret: true },
+  baseUrl: { description: "API base URL", defaultValue: "https://api.openai.com/v1" },
+  model: { description: "Model name", required: true },
+  maxRetries: { description: "Max retry attempts", defaultValue: "5" },
+  requestTimeoutMs: { description: "Request timeout (ms)", defaultValue: "600000" }
 };
 function getConfigPath() {
   if (process.platform === "win32") {
@@ -54964,6 +54966,82 @@ function rmConfigValue(cfg, key) {
   delete obj[parts[parts.length - 1]];
   return result;
 }
+function getActiveProfileName(cfg) {
+  return cfg.llm?.activeProfile ?? "default";
+}
+function getActiveProfile(cfg) {
+  const name = getActiveProfileName(cfg);
+  return cfg.llm?.profiles?.[name] ?? {};
+}
+function listProfileEntries(cfg) {
+  const activeName = getActiveProfileName(cfg);
+  return Object.entries(cfg.llm?.profiles ?? {}).map(([name, profile]) => ({
+    name,
+    profile,
+    active: name === activeName
+  }));
+}
+function addProfile(cfg, name) {
+  if (cfg.llm?.profiles?.[name])
+    throw new Error(`profile '${name}' already exists`);
+  const profiles = { ...cfg.llm?.profiles ?? {}, [name]: {} };
+  return {
+    ...cfg,
+    llm: {
+      ...cfg.llm,
+      activeProfile: cfg.llm?.activeProfile ?? name,
+      profiles
+    }
+  };
+}
+function useProfile(cfg, name) {
+  if (!cfg.llm?.profiles?.[name])
+    throw new Error(`profile '${name}' does not exist`);
+  return { ...cfg, llm: { ...cfg.llm, activeProfile: name } };
+}
+function removeProfile(cfg, name) {
+  if (!cfg.llm?.profiles?.[name])
+    throw new Error(`profile '${name}' does not exist`);
+  const profiles = { ...cfg.llm.profiles ?? {} };
+  delete profiles[name];
+  const remaining = Object.keys(profiles);
+  const activeProfile = cfg.llm.activeProfile === name ? remaining[0] : cfg.llm.activeProfile;
+  return { ...cfg, llm: { ...cfg.llm, activeProfile, profiles } };
+}
+function setProfileValue(cfg, name, key, value) {
+  if (!PROFILE_KEYS[key])
+    throw new Error(`unknown profile key '${key}'`);
+  const profiles = { ...cfg.llm?.profiles ?? {} };
+  profiles[name] = { ...profiles[name], [key]: coerceValue(value) };
+  return { ...cfg, llm: { ...cfg.llm, profiles } };
+}
+function rmProfileValue(cfg, name, key) {
+  if (!cfg.llm?.profiles?.[name])
+    throw new Error(`profile '${name}' does not exist`);
+  const profile = { ...cfg.llm.profiles[name] };
+  delete profile[key];
+  const profiles = { ...cfg.llm.profiles, [name]: profile };
+  return { ...cfg, llm: { ...cfg.llm, profiles } };
+}
+function validateConfig(cfg) {
+  const issues = [];
+  const profiles = cfg.llm?.profiles ?? {};
+  if (Object.keys(profiles).length === 0) {
+    issues.push({ key: "llm profile", description: "no LLM profile configured" });
+    return issues;
+  }
+  const activeName = getActiveProfileName(cfg);
+  const active = profiles[activeName];
+  if (!active) {
+    issues.push({ key: "llm.activeProfile", description: `active profile '${activeName}' does not exist` });
+    return issues;
+  }
+  if (!active.apiKey)
+    issues.push({ key: "apiKey", description: `profile '${activeName}' is missing apiKey` });
+  if (!active.model)
+    issues.push({ key: "model", description: `profile '${activeName}' is missing model` });
+  return issues;
+}
 function coerceValue(value) {
   if (value === "true")
     return true;
@@ -54974,27 +55052,19 @@ function coerceValue(value) {
     return n3;
   return value;
 }
-function validateConfig(cfg) {
-  const issues = [];
-  for (const [key, meta3] of Object.entries(KNOWN_KEYS)) {
-    if (meta3.required && !getConfigValue(cfg, key)) {
-      issues.push({ key, description: meta3.description });
-    }
-  }
-  return issues;
-}
 
 // src/config.ts
 var user = loadUserConfig();
+var llm = getActiveProfile(user);
 var config2 = {
   llm: {
-    provider: user.llm?.provider ?? "openai",
-    apiKey: user.llm?.apiKey ?? "",
-    baseUrl: user.llm?.baseUrl ?? "https://api.openai.com/v1",
-    model: user.llm?.model ?? "gpt-4o",
-    maxRetries: user.llm?.maxRetries ?? 5,
-    retryBaseDelayMs: user.llm?.retryBaseDelayMs ?? 2000,
-    requestTimeoutMs: user.llm?.requestTimeoutMs ?? 600000
+    provider: llm.provider ?? "openai",
+    apiKey: llm.apiKey ?? "",
+    baseUrl: llm.baseUrl ?? "https://api.openai.com/v1",
+    model: llm.model ?? "gpt-4o",
+    maxRetries: llm.maxRetries ?? 5,
+    retryBaseDelayMs: llm.retryBaseDelayMs ?? 2000,
+    requestTimeoutMs: llm.requestTimeoutMs ?? 600000
   },
   quality: {
     blueprintPassScore: 8.5,
@@ -64008,7 +64078,7 @@ var BaseChatOpenAI = class extends BaseChatModel {
     return ensuredConfig.method;
   }
   withStructuredOutput(outputSchema, config3) {
-    let llm;
+    let llm2;
     let outputParser;
     const { schema, name, includeRaw } = {
       ...config3,
@@ -64020,7 +64090,7 @@ var BaseChatOpenAI = class extends BaseChatModel {
     if (method === "jsonMode") {
       outputParser = createContentParser(schema);
       const asJsonSchema = toJsonSchema(schema);
-      llm = this.withConfig({
+      llm2 = this.withConfig({
         outputVersion: "v0",
         response_format: { type: "json_object" },
         ls_structured_output_format: {
@@ -64039,7 +64109,7 @@ var BaseChatOpenAI = class extends BaseChatModel {
         schema: isInteropZodSchema(schema) ? schema : asJsonSchema,
         strict: config3?.strict
       };
-      llm = this.withConfig({
+      llm2 = this.withConfig({
         outputVersion: "v0",
         response_format: {
           type: "json_schema",
@@ -64084,7 +64154,7 @@ var BaseChatOpenAI = class extends BaseChatModel {
           parameters: schema
         };
       }
-      llm = this.withConfig({
+      llm2 = this.withConfig({
         outputVersion: "v0",
         tools: [{
           type: "function",
@@ -64105,7 +64175,7 @@ var BaseChatOpenAI = class extends BaseChatModel {
       });
       outputParser = createFunctionCallingParser(schema, functionName);
     }
-    return assembleStructuredOutputPipeline(llm, outputParser, includeRaw);
+    return assembleStructuredOutputPipeline(llm2, outputParser, includeRaw);
   }
 };
 
@@ -66316,7 +66386,7 @@ function draw() {
   const brandRaw = `kougi-forge  ${config2.llm.model}${titleSuffix}`;
   const sepFill = Math.max(0, w - brandRaw.length - 2);
   const sep = `${c2.dim} ${c2.reset}${brand}${c2.dim}  ${"─".repeat(sepFill)}${c2.reset}`;
-  const meta3 = `${c2.dim} ${config2.meta.license} · ${config2.meta.github} · v${"0.2.0"}${c2.reset}`;
+  const meta3 = `${c2.dim} ${config2.meta.license} · ${config2.meta.github} · v${"0.3.0"}${c2.reset}`;
   process.stdout.write("\x1B7");
   process.stdout.write(`\x1B[${r - 2};1H\x1B[2K${sep}`);
   process.stdout.write(`\x1B[${r - 1};1H\x1B[2K ${phases}    ${stats}`);
@@ -66486,8 +66556,8 @@ async function streamWithResume(messages, onChunk, context2) {
   while (true) {
     const currentMessages = accumulated ? [...messages, new AIMessage(accumulated), new HumanMessage("请继续，从上文结尾处直接接续，不要重复已有内容。")] : messages;
     try {
-      const llm = getLLM();
-      const stream = await llm.stream(currentMessages);
+      const llm2 = getLLM();
+      const stream = await llm2.stream(currentMessages);
       let finished = false;
       for await (const chunk of stream) {
         const text = typeof chunk.content === "string" ? chunk.content : "";
@@ -68277,74 +68347,133 @@ var green = "\x1B[32m";
 var bold = "\x1B[1m";
 var red = "\x1B[31m";
 var reset2 = "\x1B[0m";
+function maskSecret(value) {
+  if (value.length <= 8)
+    return "***";
+  return value.slice(0, 4) + "***" + value.slice(-4);
+}
+function renderValue(raw, secret, defaultValue) {
+  const W = 30;
+  if (raw === undefined || raw === null || raw === "") {
+    return {
+      valStr: `${dim2}[not set]${reset2}`.padEnd(W),
+      suffix: defaultValue ? `${dim2}default: ${defaultValue}${reset2}` : ""
+    };
+  }
+  const display = secret ? maskSecret(String(raw)) : String(raw);
+  return {
+    valStr: display.padEnd(W),
+    suffix: defaultValue && String(raw) === defaultValue ? `${dim2}(default)${reset2}` : ""
+  };
+}
 function printConfigHelp() {
-  const keys = Object.entries(KNOWN_KEYS);
-  const keyWidth = Math.max(...keys.map(([k]) => k.length)) + 2;
+  const nonLlm = Object.entries(KNOWN_KEYS);
+  const kw = Math.max(...nonLlm.map(([k]) => k.length)) + 2;
   console.log(`
-${bold}kougi-forge config${reset2}  manage configuration
+${bold}kougi-forge config${reset2}
 
 ${bold}USAGE${reset2}
   kougi-forge config list
   kougi-forge config get <key>
   kougi-forge config set <key> <value>
   kougi-forge config rm  <key>
+  kougi-forge config profile <subcommand>
 
 ${bold}KEYS${reset2}`);
-  for (const [key, meta3] of keys) {
-    const req = meta3.required ? ` ${red}required${reset2}` : meta3.defaultValue ? `${dim2}  default: ${meta3.defaultValue}${reset2}` : "";
-    console.log(`  ${cyan}${key.padEnd(keyWidth)}${reset2}${dim2}${meta3.description}${reset2}${req}`);
+  for (const [key, meta3] of nonLlm) {
+    const suffix = meta3.defaultValue ? `${dim2}  default: ${meta3.defaultValue}${reset2}` : "";
+    console.log(`  ${cyan}${key.padEnd(kw)}${reset2}${dim2}${meta3.description}${reset2}${suffix}`);
   }
   console.log(`
-${dim2}config file: ${getConfigPath()}${reset2}`);
+${dim2}LLM 配置通过 profile 管理：kougi-forge config profile --help${reset2}`);
+  console.log(`${dim2}config file: ${getConfigPath()}${reset2}`);
 }
-function maskSecret(value) {
-  if (value.length <= 8)
-    return "***";
-  return value.slice(0, 4) + "***" + value.slice(-4);
+function printProfileHelp() {
+  const keys = Object.entries(PROFILE_KEYS);
+  const kw = Math.max(...keys.map(([k]) => k.length)) + 2;
+  console.log(`
+${bold}kougi-forge config profile${reset2}
+
+${bold}USAGE${reset2}
+  kougi-forge config profile list
+  kougi-forge config profile add  <name>
+  kougi-forge config profile use  <name>
+  kougi-forge config profile show <name>
+  kougi-forge config profile set  <name> <key> <value>
+  kougi-forge config profile get  <name> <key>
+  kougi-forge config profile rm   <name>
+
+${bold}PROFILE KEYS${reset2}`);
+  for (const [key, meta3] of keys) {
+    const req = meta3.required ? `  ${red}required${reset2}` : meta3.defaultValue ? `${dim2}  default: ${meta3.defaultValue}${reset2}` : "";
+    console.log(`  ${cyan}${key.padEnd(kw)}${reset2}${dim2}${meta3.description}${reset2}${req}`);
+  }
+  console.log(`
+${bold}EXAMPLES${reset2}
+  kougi-forge config profile add openai
+  kougi-forge config profile set openai apiKey sk-...
+  kougi-forge config profile set openai model gpt-4o
+  kougi-forge config profile add local
+  kougi-forge config profile set local baseUrl http://localhost:11434/v1
+  kougi-forge config profile set local model llama3.2
+  kougi-forge config profile use local`);
 }
 function handleConfigList() {
   const cfg = loadUserConfig();
-  const keys = Object.entries(KNOWN_KEYS);
-  const keyWidth = Math.max(...keys.map(([k]) => k.length)) + 2;
-  const valWidth = 32;
-  console.log();
-  for (const [key, meta3] of keys) {
-    const raw = getConfigValue(cfg, key);
-    let valStr;
-    let suffix;
-    if (raw === undefined || raw === null || raw === "") {
-      valStr = meta3.required ? `${red}[not set]${reset2}` : `${dim2}[not set]${reset2}`;
-      suffix = meta3.required ? `  ${red}REQUIRED${reset2}` : meta3.defaultValue ? `${dim2}  default: ${meta3.defaultValue}${reset2}` : "";
-    } else {
-      const display = meta3.secret ? maskSecret(String(raw)) : String(raw);
-      valStr = display;
-      suffix = meta3.defaultValue && String(raw) === meta3.defaultValue ? `${dim2}  (default)${reset2}` : "";
+  const activeName = getActiveProfileName(cfg);
+  const activeProfile = cfg.llm?.profiles?.[activeName];
+  const kw = Math.max(...Object.keys(PROFILE_KEYS).map((k) => k.length), ...Object.keys(KNOWN_KEYS).map((k) => k.length)) + 2;
+  console.log(`
+${bold}active profile: ${cyan}${activeName}${reset2}`);
+  if (!activeProfile) {
+    console.log(`  ${red}profile not found — run: kougi-forge config profile add ${activeName}${reset2}`);
+  } else {
+    for (const [key, meta3] of Object.entries(PROFILE_KEYS)) {
+      const raw = activeProfile[key];
+      const { valStr, suffix } = renderValue(raw, meta3.secret, meta3.defaultValue);
+      const label = meta3.required && (raw === undefined || raw === null || raw === "") ? `${red}${key.padEnd(kw)}${reset2}` : `${cyan}${key.padEnd(kw)}${reset2}`;
+      console.log(`  ${label}${valStr}${suffix}`);
     }
-    console.log(`  ${cyan}${key.padEnd(keyWidth)}${reset2}${valStr.padEnd(valWidth)}${suffix}`);
+  }
+  const profiles = listProfileEntries(cfg);
+  if (profiles.length > 1) {
+    const others = profiles.filter((p) => !p.active).map((p) => p.name).join("  ");
+    console.log(`
+${dim2}other profiles: ${others}${reset2}`);
+    console.log(`${dim2}  run: kougi-forge config profile list${reset2}`);
+  }
+  console.log(`
+${bold}general${reset2}`);
+  for (const [key, meta3] of Object.entries(KNOWN_KEYS)) {
+    const raw = getConfigValue(cfg, key);
+    const { valStr, suffix } = renderValue(raw, undefined, meta3.defaultValue);
+    console.log(`  ${cyan}${key.padEnd(kw)}${reset2}${valStr}${suffix}`);
   }
   console.log(`
 ${dim2}config file: ${getConfigPath()}${reset2}`);
 }
 function handleConfigGet(key) {
   if (!KNOWN_KEYS[key]) {
-    console.error(`${red}unknown key: ${key}${reset2}`);
+    if (PROFILE_KEYS[key]) {
+      console.error(`${red}'${key}' is a profile key — use: kougi-forge config profile get <name> ${key}${reset2}`);
+    } else {
+      console.error(`${red}unknown key: ${key}${reset2}`);
+    }
     process.exit(1);
   }
-  const cfg = loadUserConfig();
-  const value = getConfigValue(cfg, key);
-  if (value === undefined || value === null || value === "") {
-    console.log(`${dim2}[not set]${reset2}`);
-  } else {
-    console.log(String(value));
-  }
+  const value = getConfigValue(loadUserConfig(), key);
+  console.log(value === undefined || value === null || value === "" ? `${dim2}[not set]${reset2}` : String(value));
 }
 function handleConfigSet(key, value) {
   if (!KNOWN_KEYS[key]) {
-    console.error(`${red}unknown key: ${key}  (run: kougi-forge config list)${reset2}`);
+    if (PROFILE_KEYS[key]) {
+      console.error(`${red}'${key}' is a profile key — use: kougi-forge config profile set <name> ${key} <value>${reset2}`);
+    } else {
+      console.error(`${red}unknown key: ${key}  (run: kougi-forge config list)${reset2}`);
+    }
     process.exit(1);
   }
-  const cfg = setConfigValue(loadUserConfig(), key, value);
-  saveUserConfig(cfg);
+  saveUserConfig(setConfigValue(loadUserConfig(), key, value));
   console.log(`${green}✓${reset2} set ${cyan}${key}${reset2}`);
 }
 function handleConfigRm(key) {
@@ -68352,11 +68481,159 @@ function handleConfigRm(key) {
     console.error(`${red}unknown key: ${key}  (run: kougi-forge config list)${reset2}`);
     process.exit(1);
   }
-  const cfg = rmConfigValue(loadUserConfig(), key);
-  saveUserConfig(cfg);
+  saveUserConfig(rmConfigValue(loadUserConfig(), key));
   const meta3 = KNOWN_KEYS[key];
   const hint = meta3.defaultValue ? `${dim2}  (reset to default: ${meta3.defaultValue})${reset2}` : "";
   console.log(`${green}✓${reset2} removed ${cyan}${key}${reset2}${hint}`);
+}
+function handleProfileList() {
+  const cfg = loadUserConfig();
+  const entries = listProfileEntries(cfg);
+  if (entries.length === 0) {
+    console.log(`${dim2}no profiles — run: kougi-forge config profile add <name>${reset2}`);
+    return;
+  }
+  const kw = Math.max(...Object.keys(PROFILE_KEYS).map((k) => k.length)) + 2;
+  console.log();
+  for (const { name, profile, active: active2 } of entries) {
+    const activeTag = active2 ? `  ${green}(active)${reset2}` : "";
+    console.log(`${bold}${name}${reset2}${activeTag}`);
+    for (const [key, meta3] of Object.entries(PROFILE_KEYS)) {
+      const raw = profile[key];
+      if (raw === undefined || raw === null || raw === "") {
+        if (meta3.required)
+          console.log(`  ${red}${key.padEnd(kw)}${reset2}${red}[not set]  REQUIRED${reset2}`);
+        continue;
+      }
+      const display = meta3.secret ? maskSecret(String(raw)) : String(raw);
+      console.log(`  ${dim2}${key.padEnd(kw)}${reset2}${display}`);
+    }
+    console.log();
+  }
+}
+function handleProfileShow(name) {
+  const cfg = loadUserConfig();
+  const profile = cfg.llm?.profiles?.[name];
+  if (!profile) {
+    console.error(`${red}profile '${name}' not found${reset2}`);
+    process.exit(1);
+  }
+  const activeName = getActiveProfileName(cfg);
+  const kw = Math.max(...Object.keys(PROFILE_KEYS).map((k) => k.length)) + 2;
+  console.log(`
+${bold}${name}${reset2}${name === activeName ? `  ${green}(active)${reset2}` : ""}`);
+  for (const [key, meta3] of Object.entries(PROFILE_KEYS)) {
+    const raw = profile[key];
+    const { valStr, suffix } = renderValue(raw, meta3.secret, meta3.defaultValue);
+    const label = meta3.required && (raw === undefined || raw === null || raw === "") ? `${red}${key.padEnd(kw)}${reset2}` : `${cyan}${key.padEnd(kw)}${reset2}`;
+    console.log(`  ${label}${valStr}${suffix}`);
+  }
+}
+function handleConfigProfileCommand(args) {
+  const sub = args[0];
+  if (!sub || sub === "list") {
+    handleProfileList();
+    return;
+  }
+  if (sub === "--help" || sub === "-h") {
+    printProfileHelp();
+    return;
+  }
+  if (sub === "add") {
+    const name = args[1];
+    if (!name) {
+      console.error(`${red}usage: kougi-forge config profile add <name>${reset2}`);
+      process.exit(1);
+    }
+    try {
+      saveUserConfig(addProfile(loadUserConfig(), name));
+      console.log(`${green}✓${reset2} added profile ${cyan}${name}${reset2}`);
+    } catch (e) {
+      console.error(`${red}${e.message}${reset2}`);
+      process.exit(1);
+    }
+    return;
+  }
+  if (sub === "use") {
+    const name = args[1];
+    if (!name) {
+      console.error(`${red}usage: kougi-forge config profile use <name>${reset2}`);
+      process.exit(1);
+    }
+    try {
+      saveUserConfig(useProfile(loadUserConfig(), name));
+      console.log(`${green}✓${reset2} switched to profile ${cyan}${name}${reset2}`);
+    } catch (e) {
+      console.error(`${red}${e.message}${reset2}`);
+      process.exit(1);
+    }
+    return;
+  }
+  if (sub === "show") {
+    const name = args[1];
+    if (!name) {
+      console.error(`${red}usage: kougi-forge config profile show <name>${reset2}`);
+      process.exit(1);
+    }
+    handleProfileShow(name);
+    return;
+  }
+  if (sub === "set") {
+    const [, name, key, value] = args;
+    if (!name || !key || value === undefined) {
+      console.error(`${red}usage: kougi-forge config profile set <name> <key> <value>${reset2}`);
+      process.exit(1);
+    }
+    try {
+      saveUserConfig(setProfileValue(loadUserConfig(), name, key, value));
+      console.log(`${green}✓${reset2} set ${cyan}${name}${reset2}.${cyan}${key}${reset2}`);
+    } catch (e) {
+      console.error(`${red}${e.message}${reset2}`);
+      process.exit(1);
+    }
+    return;
+  }
+  if (sub === "get") {
+    const [, name, key] = args;
+    if (!name || !key) {
+      console.error(`${red}usage: kougi-forge config profile get <name> <key>${reset2}`);
+      process.exit(1);
+    }
+    const cfg = loadUserConfig();
+    if (!cfg.llm?.profiles?.[name]) {
+      console.error(`${red}profile '${name}' not found${reset2}`);
+      process.exit(1);
+    }
+    const val = cfg.llm.profiles[name][key];
+    console.log(val === undefined ? `${dim2}[not set]${reset2}` : String(val));
+    return;
+  }
+  if (sub === "rm") {
+    const name = args[1];
+    const key = args[2];
+    if (!name) {
+      console.error(`${red}usage: kougi-forge config profile rm <name> [key]${reset2}`);
+      process.exit(1);
+    }
+    try {
+      if (key) {
+        saveUserConfig(rmProfileValue(loadUserConfig(), name, key));
+        const meta3 = PROFILE_KEYS[key];
+        const hint = meta3?.defaultValue ? `${dim2}  (reset to default: ${meta3.defaultValue})${reset2}` : "";
+        console.log(`${green}✓${reset2} removed ${cyan}${name}${reset2}.${cyan}${key}${reset2}${hint}`);
+      } else {
+        saveUserConfig(removeProfile(loadUserConfig(), name));
+        console.log(`${green}✓${reset2} removed profile ${cyan}${name}${reset2}`);
+      }
+    } catch (e) {
+      console.error(`${red}${e.message}${reset2}`);
+      process.exit(1);
+    }
+    return;
+  }
+  console.error(`${red}unknown profile subcommand: ${sub}${reset2}`);
+  printProfileHelp();
+  process.exit(1);
 }
 function handleConfigCommand(args) {
   const sub = args[0];
@@ -68388,6 +68665,10 @@ function handleConfigCommand(args) {
     handleConfigRm(args[1]);
     return;
   }
+  if (sub === "profile") {
+    handleConfigProfileCommand(args.slice(1));
+    return;
+  }
   if (sub === "--help" || sub === "-h") {
     printConfigHelp();
     return;
@@ -68401,15 +68682,13 @@ function assertConfigComplete() {
   if (issues.length === 0)
     return;
   console.error(`
-${red}✖ missing required configuration:${reset2}`);
+${red}✖ 配置不完整：${reset2}`);
   for (const issue2 of issues) {
-    console.error(`  ${cyan}${issue2.key}${reset2}  ${dim2}${issue2.description}${reset2}`);
-    console.error(`  ${reset2}${dim2}run${reset2}`);
-    console.error(`    ${cyan}kougi-forge config set ${issue2.key} <value>${reset2}`);
-    console.error(`  ${reset2}${dim2}to set ${issue2.description}.${reset2}`);
-    console.error(`
-`);
+    console.error(`  ${dim2}${issue2.description}${reset2}`);
   }
+  console.error(`
+${dim2}运行 kougi-forge config profile --help 查看配置方法${reset2}
+`);
   process.exit(1);
 }
 async function promptUser(hint) {
@@ -68445,10 +68724,11 @@ ${bold}OPTIONS${reset2}
   -h, --help                       show help
 
 ${bold}EXAMPLES${reset2}
-  kougi-forge config set llm.apiKey sk-...
-  kougi-forge config list
+  kougi-forge config profile add openai
+  kougi-forge config profile set openai apiKey sk-...
+  kougi-forge config profile set openai model gpt-4o
+  kougi-forge config profile use openai
   kougi-forge "数据结构与算法"
-  kougi-forge --list
   kougi-forge --resume session-1234567890
 `.trim());
 }

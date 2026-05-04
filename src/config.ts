@@ -1,16 +1,17 @@
-import { getDefaultCheckpointDir, loadUserConfig } from './utils/user-config.ts'
+import { getActiveProfile, getDefaultCheckpointDir, loadUserConfig } from './utils/user-config.ts'
 
 const user = loadUserConfig()
+const llm = getActiveProfile(user)
 
 export const config = {
   llm: {
-    provider: user.llm?.provider ?? 'openai',
-    apiKey: user.llm?.apiKey ?? '',
-    baseUrl: user.llm?.baseUrl ?? 'https://api.openai.com/v1',
-    model: user.llm?.model ?? 'gpt-4o',
-    maxRetries: user.llm?.maxRetries ?? 5,
-    retryBaseDelayMs: user.llm?.retryBaseDelayMs ?? 2000,
-    requestTimeoutMs: user.llm?.requestTimeoutMs ?? 600_000,
+    provider: llm.provider ?? 'openai',
+    apiKey: llm.apiKey ?? '',
+    baseUrl: llm.baseUrl ?? 'https://api.openai.com/v1',
+    model: llm.model ?? 'gpt-4o',
+    maxRetries: llm.maxRetries ?? 5,
+    retryBaseDelayMs: llm.retryBaseDelayMs ?? 2000,
+    requestTimeoutMs: llm.requestTimeoutMs ?? 600_000,
   },
   quality: {
     blueprintPassScore: 8.5,
